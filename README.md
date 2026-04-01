@@ -174,6 +174,8 @@ docker run -d --name tempmail \
 - `ghcr.io/<owner>/tempmail:<tag>`
 - `ghcr.io/<owner>/tempmail:latest`（默认分支）
 
+同时，Go 多平台构建产物会自动上传到当前 Release 的 Assets（含 `SHA256SUMS.txt`）。
+
 ### 拉取并部署
 
 ```bash
