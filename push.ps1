@@ -32,7 +32,8 @@ git commit -m "$message"
 
 Write-Host ""
 Write-Host "[4/5] Pushing to remote repository..." -ForegroundColor Yellow
-Write-Host "Target: https://github.com/clockclock1/Temp-Mail-Platform.git" -ForegroundColor Gray
+$remoteUrl = git remote get-url origin
+Write-Host "Target: $remoteUrl" -ForegroundColor Gray
 
 $branch = git branch --show-current
 if ([string]::IsNullOrEmpty($branch)) {
