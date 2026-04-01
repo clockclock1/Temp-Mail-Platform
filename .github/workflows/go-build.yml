@@ -1,5 +1,8 @@
 ﻿name: Go Multi-Platform Build
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 on:
   push:
     paths:
@@ -18,10 +21,11 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
       - run: go mod download
       - run: go test ./...
 
@@ -50,10 +54,11 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
       - run: go mod download
       - name: Build binary
         env:
@@ -68,7 +73,7 @@ jobs:
           BIN="tempmail-${GOOS}-${GOARCH}${EXT}"
           go build -trimpath -ldflags "-s -w" -o "dist/${BIN}" ./cmd/server
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tempmail-${{ matrix.goos }}-${{ matrix.goarch }}
           path: backend/dist/*
