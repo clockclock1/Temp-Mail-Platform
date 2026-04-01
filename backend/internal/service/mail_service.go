@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"tempmail/backend/internal/models"
@@ -21,11 +22,24 @@ import (
 
 type MailService struct {
 	db      *gorm.DB
+	mu      sync.RWMutex
 	dataDir string
 }
 
 func NewMailService(db *gorm.DB, dataDir string) *MailService {
 	return &MailService{db: db, dataDir: dataDir}
+}
+
+func (s *MailService) DataDir() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.dataDir
+}
+
+func (s *MailService) UpdateDataDir(dir string) {
+	s.mu.Lock()
+	s.dataDir = strings.TrimSpace(dir)
+	s.mu.Unlock()
 }
 
 func (s *MailService) DB() *gorm.DB {
@@ -99,7 +113,7 @@ func (s *MailService) StoreIncomingMessage(mailbox *models.Mailbox, envelopeTo, 
 		fromAddr = fallbackFrom
 	}
 
-	dayPath := filepath.Join(s.dataDir, time.Now().Format("20060102"))
+	dayPath := filepath.Join(s.DataDir(), time.Now().Format("20060102"))
 	if err := os.MkdirAll(dayPath, 0o755); err != nil {
 		return nil, fmt.Errorf("create message dir: %w", err)
 	}

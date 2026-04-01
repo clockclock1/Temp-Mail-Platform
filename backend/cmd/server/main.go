@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"log"
 	"net"
 	"net/http"
@@ -16,13 +17,21 @@ import (
 	"tempmail/backend/internal/config"
 	"tempmail/backend/internal/db"
 	httprouter "tempmail/backend/internal/http/router"
+	"tempmail/backend/internal/runtime"
 	"tempmail/backend/internal/seed"
 	"tempmail/backend/internal/service"
 	smtpsrv "tempmail/backend/internal/smtp"
 )
 
 func main() {
-	cfg := config.Load()
+	configPath := flag.String("config", "./config.yaml", "path to config yaml")
+	flag.Parse()
+
+	cfgManager, err := config.NewManager(*configPath)
+	if err != nil {
+		log.Fatalf("failed to load config manager: %v", err)
+	}
+	cfg := cfgManager.Get()
 
 	database, err := db.Open(cfg.DBPath)
 	if err != nil {
@@ -36,8 +45,15 @@ func main() {
 	}
 
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret, cfg.JWTExpireHours)
+	addressJWT := auth.NewAddressJWTManager(cfg.JWTSecret, cfg.LegacyAddrExpire)
 	mailService := service.NewMailService(database, cfg.DataDir)
-	r := httprouter.New(cfg, database, jwtManager, mailService)
+	runtimeController := runtime.NewController(mailService, jwtManager, addressJWT)
+	runtimeController.StartCleanupLoop()
+	if _, err := runtimeController.Apply(cfg, cfg); err != nil {
+		log.Fatalf("failed to apply runtime config: %v", err)
+	}
+
+	r := httprouter.New(cfgManager, database, jwtManager, addressJWT, mailService, runtimeController)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -46,10 +62,6 @@ func main() {
 	}
 
 	smtpServer := smtpsrv.New(cfg.SMTPAddr, mailService)
-
-	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
-	defer cleanupCancel()
-	go startCleanupTicker(cleanupCtx, mailService, cfg.CleanupInterval)
 
 	go func() {
 		log.Printf("http server listening on %s", cfg.HTTPAddr)
@@ -73,7 +85,7 @@ func main() {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cleanupCancel()
+	runtimeController.StopCleanupLoop()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("http shutdown error: %v", err)
@@ -83,21 +95,6 @@ func main() {
 	}
 
 	log.Println("service stopped")
-}
-
-func startCleanupTicker(ctx context.Context, mailService *service.MailService, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := mailService.CleanupExpiredMailboxes(); err != nil {
-				log.Printf("cleanup expired mailboxes error: %v", err)
-			}
-		}
-	}
 }
 
 func isExpectedShutdownErr(err error) bool {

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="app-shell">
     <header class="topbar" v-if="auth.isLoggedIn.value">
       <div class="brand">
@@ -10,6 +10,7 @@
         <RouterLink v-if="auth.isAdmin.value" to="/domains">域名</RouterLink>
         <RouterLink v-if="auth.isAdmin.value" to="/users">用户</RouterLink>
         <RouterLink v-if="auth.isAdmin.value" to="/roles">角色</RouterLink>
+        <RouterLink v-if="auth.can('config:manage')" to="/config">配置</RouterLink>
       </nav>
       <div class="actions">
         <span class="user">{{ auth.state.user?.username }}</span>

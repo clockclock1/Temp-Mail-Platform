@@ -1,0 +1,16 @@
+﻿app_name: Temp Mail Service
+http_addr: ":8080"
+smtp_addr: ":2525"
+web_dir: "/app/web"
+jwt_secret: "change-me-in-production"
+jwt_expire_hours: 24
+legacy_admin_auth: "change-this-admin-auth"
+legacy_custom_auth: ""
+legacy_address_jwt_expire_hours: 720
+db_path: "/app/data/tempmail.db"
+data_dir: "/app/data/messages"
+cors_origins:
+  - "*"
+default_admin_user: "admin"
+default_admin_pass: "change-this-admin-password"
+cleanup_interval_minutes: 10

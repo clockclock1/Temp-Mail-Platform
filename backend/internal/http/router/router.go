@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,15 +12,23 @@ import (
 	"tempmail/backend/internal/http/handlers"
 	"tempmail/backend/internal/http/middleware"
 	"tempmail/backend/internal/models"
+	"tempmail/backend/internal/runtime"
 	"tempmail/backend/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func New(cfg config.Config, db *gorm.DB, jwtManager *auth.JWTManager, mailService *service.MailService) *gin.Engine {
+func New(
+	cfgManager *config.Manager,
+	db *gorm.DB,
+	jwtManager *auth.JWTManager,
+	addressJWT *auth.AddressJWTManager,
+	mailService *service.MailService,
+	runtimeController *runtime.Controller,
+) *gin.Engine {
 	r := gin.Default()
-	r.Use(corsMiddleware(cfg.CorsOrigins))
+	r.Use(corsMiddleware(cfgManager))
 
 	authHandler := handlers.NewAuthHandler(db, jwtManager)
 	domainHandler := handlers.NewDomainHandler(db)
@@ -28,7 +37,8 @@ func New(cfg config.Config, db *gorm.DB, jwtManager *auth.JWTManager, mailServic
 	mailboxHandler := handlers.NewMailboxHandler(db, mailService)
 	messageHandler := handlers.NewMessageHandler(db)
 	statsHandler := handlers.NewStatsHandler(db)
-	legacyHandler := handlers.NewLegacyHandler(cfg, db, mailService, jwtManager)
+	legacyHandler := handlers.NewLegacyHandler(cfgManager, db, mailService, jwtManager, addressJWT)
+	configHandler := handlers.NewConfigHandler(cfgManager, runtimeController)
 
 	r.GET("/healthz", handlers.Health)
 
@@ -107,28 +117,32 @@ func New(cfg config.Config, db *gorm.DB, jwtManager *auth.JWTManager, mailServic
 			}
 
 			secured.GET("/stats", middleware.RequirePermission(models.PermStatsRead), statsHandler.Get)
+			secured.GET("/system/config", middleware.RequirePermission(models.PermConfigManage), configHandler.Get)
+			secured.PUT("/system/config", middleware.RequirePermission(models.PermConfigManage), configHandler.Update)
+			secured.POST("/system/config/reload", middleware.RequirePermission(models.PermConfigManage), configHandler.Reload)
 		}
 	}
 
-	registerFrontend(r, cfg)
+	registerFrontend(r, cfgManager)
 
 	return r
 }
 
-func corsMiddleware(allowOrigins []string) gin.HandlerFunc {
-	allowAll := false
-	originSet := map[string]struct{}{}
-	for _, o := range allowOrigins {
-		o = strings.TrimSpace(o)
-		if o == "*" {
-			allowAll = true
-		}
-		if o != "" {
-			originSet[o] = struct{}{}
-		}
-	}
-
+func corsMiddleware(cfgManager *config.Manager) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		cfg := cfgManager.Get()
+		allowAll := false
+		originSet := map[string]struct{}{}
+		for _, o := range cfg.CorsOrigins {
+			o = strings.TrimSpace(o)
+			if o == "*" {
+				allowAll = true
+			}
+			if o != "" {
+				originSet[o] = struct{}{}
+			}
+		}
+
 		origin := c.Request.Header.Get("Origin")
 		if allowAll {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
@@ -141,46 +155,86 @@ func corsMiddleware(allowOrigins []string) gin.HandlerFunc {
 
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, x-admin-auth, x-user-token, x-custom-auth")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 		c.Next()
 	}
 }
 
-func registerFrontend(r *gin.Engine, cfg config.Config) {
-	webDir := strings.TrimSpace(cfg.WebDir)
-	if webDir == "" {
-		return
-	}
-
-	indexPath := filepath.Join(webDir, "index.html")
-	if st, err := os.Stat(indexPath); err != nil || st.IsDir() {
-		return
-	}
-
-	assetsPath := filepath.Join(webDir, "assets")
-	if st, err := os.Stat(assetsPath); err == nil && st.IsDir() {
-		r.Static("/assets", assetsPath)
-	}
-
-	faviconPath := filepath.Join(webDir, "favicon.ico")
-	if st, err := os.Stat(faviconPath); err == nil && !st.IsDir() {
-		r.StaticFile("/favicon.ico", faviconPath)
-	}
-
-	r.GET("/", func(c *gin.Context) {
-		c.File(indexPath)
+func registerFrontend(r *gin.Engine, cfgManager *config.Manager) {
+	r.GET("/", func(c *gin.Context) { serveIndex(c, cfgManager) })
+	r.GET("/favicon.ico", func(c *gin.Context) {
+		cfg := cfgManager.Get()
+		full := filepath.Join(strings.TrimSpace(cfg.WebDir), "favicon.ico")
+		st, err := os.Stat(full)
+		if err != nil || st.IsDir() {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.File(full)
 	})
+	r.GET("/assets/*filepath", func(c *gin.Context) {
+		cfg := cfgManager.Get()
+		root := filepath.Join(strings.TrimSpace(cfg.WebDir), "assets")
+		reqPath := strings.TrimPrefix(c.Param("filepath"), "/")
+		if reqPath == "" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		full, err := safeJoin(root, reqPath)
+		if err != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		st, err := os.Stat(full)
+		if err != nil || st.IsDir() {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.File(full)
+	})
+
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if isReservedPath(path) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
-		c.File(indexPath)
+		serveIndex(c, cfgManager)
 	})
+}
+
+func serveIndex(c *gin.Context, cfgManager *config.Manager) {
+	cfg := cfgManager.Get()
+	indexPath := filepath.Join(strings.TrimSpace(cfg.WebDir), "index.html")
+	st, err := os.Stat(indexPath)
+	if err != nil || st.IsDir() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "frontend not available"})
+		return
+	}
+	c.File(indexPath)
+}
+
+func safeJoin(root, reqPath string) (string, error) {
+	base := filepath.Clean(root)
+	if base == "." || strings.TrimSpace(base) == "" {
+		return "", errors.New("invalid root")
+	}
+	req := filepath.Clean(reqPath)
+	if req == "." || req == "" {
+		return "", errors.New("invalid path")
+	}
+	full := filepath.Clean(filepath.Join(base, req))
+	if full == base {
+		return full, nil
+	}
+	prefix := base + string(os.PathSeparator)
+	if !strings.HasPrefix(full, prefix) {
+		return "", errors.New("path traversal")
+	}
+	return full, nil
 }
 
 func isReservedPath(path string) bool {
@@ -189,5 +243,7 @@ func isReservedPath(path string) bool {
 	}
 	return path == "/api" || strings.HasPrefix(path, "/api/") ||
 		path == "/admin" || strings.HasPrefix(path, "/admin/") ||
-		path == "/user_api" || strings.HasPrefix(path, "/user_api/")
+		path == "/user_api" || strings.HasPrefix(path, "/user_api/") ||
+		path == "/assets" || strings.HasPrefix(path, "/assets/") ||
+		path == "/favicon.ico"
 }

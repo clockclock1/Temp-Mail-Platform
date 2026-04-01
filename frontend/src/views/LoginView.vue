@@ -20,7 +20,7 @@
       </button>
 
       <p v-if="error" class="error">{{ error }}</p>
-      <p class="meta" style="margin-top: 12px">默认管理员账号来自后端环境变量 `DEFAULT_ADMIN_USER/DEFAULT_ADMIN_PASS`。</p>
+      <p class="meta" style="margin-top: 12px">默认管理员账号来自配置文件 `default_admin_user/default_admin_pass`。</p>
     </div>
   </div>
 </template>

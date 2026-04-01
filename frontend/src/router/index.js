@@ -4,6 +4,7 @@ import DashboardView from '../views/DashboardView.vue'
 import DomainsView from '../views/DomainsView.vue'
 import UsersView from '../views/UsersView.vue'
 import RolesView from '../views/RolesView.vue'
+import ConfigView from '../views/ConfigView.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
@@ -12,6 +13,7 @@ const routes = [
   { path: '/domains', name: 'domains', component: DomainsView, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/users', name: 'users', component: UsersView, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/roles', name: 'roles', component: RolesView, meta: { requiresAuth: true, adminOnly: true } },
+  { path: '/config', name: 'config', component: ConfigView, meta: { requiresAuth: true, permission: 'config:manage' } },
 ]
 
 const router = createRouter({
@@ -28,6 +30,9 @@ router.beforeEach((to) => {
     return { name: 'dashboard' }
   }
   if (to.meta.adminOnly && !auth.isAdmin.value) {
+    return { name: 'dashboard' }
+  }
+  if (to.meta.permission && !auth.can(to.meta.permission)) {
     return { name: 'dashboard' }
   }
   return true

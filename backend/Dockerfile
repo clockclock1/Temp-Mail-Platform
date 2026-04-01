@@ -18,13 +18,8 @@ FROM --platform=$TARGETPLATFORM gcr.io/distroless/base-debian12
 WORKDIR /app
 COPY --from=backend-build /out/tempmail /app/tempmail
 COPY --from=frontend-build /frontend/dist /app/web
+COPY backend/config/config.example.yaml /app/config/config.yaml
 
-ENV HTTP_ADDR=:8080
-ENV SMTP_ADDR=:2525
-ENV WEB_DIR=/app/web
-ENV DB_PATH=/app/data/tempmail.db
-ENV DATA_DIR=/app/data/messages
-
-VOLUME ["/app/data"]
+VOLUME ["/app/data", "/app/config"]
 EXPOSE 8080 2525
-ENTRYPOINT ["/app/tempmail"]
+ENTRYPOINT ["/app/tempmail", "-config", "/app/config/config.yaml"]

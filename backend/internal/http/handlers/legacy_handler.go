@@ -20,20 +20,20 @@ import (
 )
 
 type LegacyHandler struct {
-	db      *gorm.DB
-	mailSvc *service.MailService
-	userJWT *auth.JWTManager
-	addrJWT *auth.AddressJWTManager
-	cfg     config.Config
+	db         *gorm.DB
+	mailSvc    *service.MailService
+	userJWT    *auth.JWTManager
+	addrJWT    *auth.AddressJWTManager
+	cfgManager *config.Manager
 }
 
-func NewLegacyHandler(cfg config.Config, db *gorm.DB, mailSvc *service.MailService, userJWT *auth.JWTManager) *LegacyHandler {
+func NewLegacyHandler(cfgManager *config.Manager, db *gorm.DB, mailSvc *service.MailService, userJWT *auth.JWTManager, addressJWT *auth.AddressJWTManager) *LegacyHandler {
 	return &LegacyHandler{
-		db:      db,
-		mailSvc: mailSvc,
-		userJWT: userJWT,
-		addrJWT: auth.NewAddressJWTManager(cfg.JWTSecret, cfg.LegacyAddrExpire),
-		cfg:     cfg,
+		db:         db,
+		mailSvc:    mailSvc,
+		userJWT:    userJWT,
+		addrJWT:    addressJWT,
+		cfgManager: cfgManager,
 	}
 }
 
@@ -461,11 +461,12 @@ func (h *LegacyHandler) resolveDomain(name string, allowCreate bool, creatorID u
 }
 
 func (h *LegacyHandler) ensureCustomAuth(c *gin.Context) bool {
-	if strings.TrimSpace(h.cfg.LegacyCustomAuth) == "" {
+	cfg := h.cfgManager.Get()
+	if strings.TrimSpace(cfg.LegacyCustomAuth) == "" {
 		return true
 	}
 	v := c.GetHeader("x-custom-auth")
-	if subtle.ConstantTimeCompare([]byte(v), []byte(h.cfg.LegacyCustomAuth)) != 1 {
+	if subtle.ConstantTimeCompare([]byte(v), []byte(cfg.LegacyCustomAuth)) != 1 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid x-custom-auth"})
 		return false
 	}
@@ -481,8 +482,9 @@ func (h *LegacyHandler) ensureAdmin(c *gin.Context) (models.User, bool) {
 }
 
 func (h *LegacyHandler) tryAdmin(c *gin.Context) (models.User, bool) {
+	cfg := h.cfgManager.Get()
 	adminHeader := c.GetHeader("x-admin-auth")
-	if adminHeader != "" && subtle.ConstantTimeCompare([]byte(adminHeader), []byte(h.cfg.LegacyAdminAuth)) == 1 {
+	if adminHeader != "" && subtle.ConstantTimeCompare([]byte(adminHeader), []byte(cfg.LegacyAdminAuth)) == 1 {
 		u, err := h.firstAdminUser()
 		if err == nil {
 			return u, true

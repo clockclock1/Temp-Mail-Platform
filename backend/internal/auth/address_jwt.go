@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,6 +15,7 @@ type AddressClaims struct {
 }
 
 type AddressJWTManager struct {
+	mu          sync.RWMutex
 	secret      []byte
 	expireHours int
 }
@@ -23,8 +25,13 @@ func NewAddressJWTManager(secret string, expireHours int) *AddressJWTManager {
 }
 
 func (m *AddressJWTManager) Generate(mailboxID uint, address string) (string, error) {
+	m.mu.RLock()
+	secret := append([]byte(nil), m.secret...)
+	expireHours := m.expireHours
+	m.mu.RUnlock()
+
 	now := time.Now()
-	exp := now.Add(time.Duration(m.expireHours) * time.Hour)
+	exp := now.Add(time.Duration(expireHours) * time.Hour)
 	claims := AddressClaims{
 		MailboxID: mailboxID,
 		Address:   address,
@@ -35,12 +42,16 @@ func (m *AddressJWTManager) Generate(mailboxID uint, address string) (string, er
 		},
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return t.SignedString(m.secret)
+	return t.SignedString(secret)
 }
 
 func (m *AddressJWTManager) Parse(token string) (*AddressClaims, error) {
+	m.mu.RLock()
+	secret := append([]byte(nil), m.secret...)
+	m.mu.RUnlock()
+
 	parsed, err := jwt.ParseWithClaims(token, &AddressClaims{}, func(t *jwt.Token) (any, error) {
-		return m.secret, nil
+		return secret, nil
 	})
 	if err != nil {
 		return nil, err
@@ -50,4 +61,11 @@ func (m *AddressJWTManager) Parse(token string) (*AddressClaims, error) {
 		return nil, fmt.Errorf("invalid token")
 	}
 	return claims, nil
+}
+
+func (m *AddressJWTManager) Update(secret string, expireHours int) {
+	m.mu.Lock()
+	m.secret = []byte(secret)
+	m.expireHours = expireHours
+	m.mu.Unlock()
 }

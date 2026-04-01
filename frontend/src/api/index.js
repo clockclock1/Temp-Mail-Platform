@@ -95,3 +95,15 @@ export const StatsAPI = {
     return api.get('/stats')
   },
 }
+
+export const SystemAPI = {
+  getConfig() {
+    return api.get('/system/config')
+  },
+  updateConfig(payload) {
+    return api.put('/system/config', payload)
+  },
+  reloadConfig() {
+    return api.post('/system/config/reload')
+  },
+}

@@ -10,6 +10,7 @@ const (
 	PermUserManage    = "user:manage"
 	PermRoleManage    = "role:manage"
 	PermStatsRead     = "stats:read"
+	PermConfigManage  = "config:manage"
 )
 
 var DefaultPermissionCatalog = []Permission{
@@ -22,4 +23,5 @@ var DefaultPermissionCatalog = []Permission{
 	{Key: PermUserManage, Description: "Manage users"},
 	{Key: PermRoleManage, Description: "Manage roles and permissions"},
 	{Key: PermStatsRead, Description: "Read system stats"},
+	{Key: PermConfigManage, Description: "Manage runtime config"},
 }
