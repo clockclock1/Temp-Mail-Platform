@@ -12,8 +12,8 @@ Write-Host ""
 if ($useProxy) {
     Write-Host "[0/5] Setting up proxy..." -ForegroundColor Yellow
     Write-Host "Proxy: $proxy" -ForegroundColor Gray
-    git config --global http.proxy $proxy
-    git config --global https.proxy $proxy
+    git config http.proxy $proxy
+    git config https.proxy $proxy
     Write-Host "Proxy configured successfully!" -ForegroundColor Green
     Write-Host ""
 }
@@ -46,8 +46,8 @@ git push -u origin $branch --force
 if ($useProxy) {
     Write-Host ""
     Write-Host "[5/5] Cleaning up proxy..." -ForegroundColor Yellow
-    git config --global --unset http.proxy
-    git config --global --unset https.proxy
+    git config --unset http.proxy
+    git config --unset https.proxy
     Write-Host "Proxy settings cleared!" -ForegroundColor Green
 }
 
