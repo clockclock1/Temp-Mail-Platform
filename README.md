@@ -1,6 +1,6 @@
 ﻿# Temp Mail Platform (Go + Vue)
 
-一个前后端分离的临时邮箱系统，满足以下目标：
+一个临时邮箱系统，Docker 部署时前后端打包为同一镜像（单容器），满足以下目标：
 
 - 只需给子域名配置 MX 记录即可接收邮件
 - 必须登录后才能创建邮箱
@@ -12,6 +12,7 @@
 
 - 后端: `backend` (Go + Gin + GORM + SQLite)
 - 前端: `frontend` (Vue3 + Vite)
+- Docker 生产部署: 单镜像（Go API + SMTP + Vue 静态站点）
 - 数据库文件: `backend/data/tempmail.db`（可改）
 - 邮件原文: `backend/data/messages/*.eml`
 - SMTP 收信服务: 默认 `:2525`
@@ -61,14 +62,14 @@ npm run dev
 
 默认访问：`http://localhost:5173`
 
-## Docker 运行
+## Docker 运行（单容器）
 
 ```bash
 cp backend/.env.example backend/.env
 docker compose up -d --build
 ```
 
-- 前端: `http://localhost:8081`
+- Web 控制台: `http://localhost:8080`
 - 后端 API: `http://localhost:8080/api/v1`
 - SMTP: `localhost:2525`（生产通常映射公网 25）
 
@@ -128,7 +129,7 @@ docker compose up -d --build
   - Linux/Windows/macOS + amd64/arm64（含 Linux arm）
 - Docker 多架构构建: `.github/workflows/docker-multiarch.yml`
   - `linux/amd64`, `linux/arm64`, `linux/arm/v7`
-  - 推送到 `ghcr.io/<owner>/tempmail-backend` 和 `ghcr.io/<owner>/tempmail-frontend`
+  - 推送到 `ghcr.io/<owner>/tempmail`（单镜像）
 
 ## 生产建议
 

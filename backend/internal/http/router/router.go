@@ -1,6 +1,9 @@
 package router
 
 import (
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"tempmail/backend/internal/auth"
@@ -107,6 +110,8 @@ func New(cfg config.Config, db *gorm.DB, jwtManager *auth.JWTManager, mailServic
 		}
 	}
 
+	registerFrontend(r, cfg)
+
 	return r
 }
 
@@ -142,4 +147,47 @@ func corsMiddleware(allowOrigins []string) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func registerFrontend(r *gin.Engine, cfg config.Config) {
+	webDir := strings.TrimSpace(cfg.WebDir)
+	if webDir == "" {
+		return
+	}
+
+	indexPath := filepath.Join(webDir, "index.html")
+	if st, err := os.Stat(indexPath); err != nil || st.IsDir() {
+		return
+	}
+
+	assetsPath := filepath.Join(webDir, "assets")
+	if st, err := os.Stat(assetsPath); err == nil && st.IsDir() {
+		r.Static("/assets", assetsPath)
+	}
+
+	faviconPath := filepath.Join(webDir, "favicon.ico")
+	if st, err := os.Stat(faviconPath); err == nil && !st.IsDir() {
+		r.StaticFile("/favicon.ico", faviconPath)
+	}
+
+	r.GET("/", func(c *gin.Context) {
+		c.File(indexPath)
+	})
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if isReservedPath(path) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.File(indexPath)
+	})
+}
+
+func isReservedPath(path string) bool {
+	if path == "/healthz" {
+		return true
+	}
+	return path == "/api" || strings.HasPrefix(path, "/api/") ||
+		path == "/admin" || strings.HasPrefix(path, "/admin/") ||
+		path == "/user_api" || strings.HasPrefix(path, "/user_api/")
 }

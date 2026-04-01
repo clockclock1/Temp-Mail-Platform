@@ -1,9 +1,10 @@
 ﻿version: '3.9'
 services:
-  backend:
+  tempmail:
     build:
-      context: ./backend
-    container_name: tempmail-backend
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: tempmail
     restart: unless-stopped
     env_file:
       - ./backend/.env
@@ -12,13 +13,3 @@ services:
     ports:
       - "8080:8080"
       - "2525:2525"
-
-  frontend:
-    build:
-      context: ./frontend
-    container_name: tempmail-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "8081:80"

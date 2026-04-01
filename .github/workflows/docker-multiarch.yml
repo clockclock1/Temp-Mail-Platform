@@ -4,19 +4,9 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 on:
-  push:
-    branches: ["main", "master"]
-    tags: ["v*"]
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/docker-multiarch.yml'
-  pull_request:
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/docker-multiarch.yml'
-  workflow_dispatch:
+  release:
+    types:
+      - published
 
 jobs:
   docker:
@@ -38,44 +28,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Backend image metadata
-        id: meta_backend
+      - name: Image metadata
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/tempmail-backend
+          images: ghcr.io/${{ github.repository_owner }}/tempmail
           tags: |
             type=ref,event=branch
             type=ref,event=tag
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Frontend image metadata
-        id: meta_frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/tempmail-frontend
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build backend image
+      - name: Build app image (backend + frontend)
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          context: .
           file: ./backend/Dockerfile
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta_backend.outputs.tags }}
-          labels: ${{ steps.meta_backend.outputs.labels }}
-
-      - name: Build frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta_frontend.outputs.tags }}
-          labels: ${{ steps.meta_frontend.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

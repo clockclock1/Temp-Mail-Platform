@@ -11,6 +11,7 @@ type Config struct {
 	AppName          string
 	HTTPAddr         string
 	SMTPAddr         string
+	WebDir           string
 	JWTSecret        string
 	JWTExpireHours   int
 	LegacyAdminAuth  string
@@ -36,6 +37,7 @@ func Load() Config {
 		AppName:          env("APP_NAME", "Temp Mail Service"),
 		HTTPAddr:         env("HTTP_ADDR", ":8080"),
 		SMTPAddr:         env("SMTP_ADDR", ":2525"),
+		WebDir:           env("WEB_DIR", "./web"),
 		JWTSecret:        env("JWT_SECRET", "change-me-in-production"),
 		JWTExpireHours:   envInt("JWT_EXPIRE_HOURS", 24),
 		LegacyAdminAuth:  env("LEGACY_ADMIN_AUTH", defaultAdminPass),
