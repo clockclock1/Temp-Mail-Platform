@@ -32,7 +32,22 @@ func (h *RoleHandler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": roles})
+
+	type roleSummary struct {
+		models.Role
+		UserCount int64 `json:"userCount"`
+	}
+	items := make([]roleSummary, 0, len(roles))
+	for _, role := range roles {
+		var count int64
+		if err := h.db.Model(&models.User{}).Where("role_id = ?", role.ID).Count(&count).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		items = append(items, roleSummary{Role: role, UserCount: count})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
 func (h *RoleHandler) Create(c *gin.Context) {
@@ -141,6 +156,34 @@ func (h *RoleHandler) Permissions(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": perms})
+}
+
+func (h *RoleHandler) Users(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+
+	var role models.Role
+	if err := h.db.First(&role, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "role not found"})
+		return
+	}
+
+	type item struct {
+		ID          uint   `json:"id"`
+		Username    string `json:"username"`
+		DisplayName string `json:"displayName"`
+		Active      bool   `json:"active"`
+	}
+	var users []item
+	if err := h.db.Model(&models.User{}).
+		Where("role_id = ?", role.ID).
+		Select("id, username, display_name, active").
+		Order("id desc").
+		Find(&users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": users})
 }
 
 func (h *RoleHandler) findPermissionsByKeys(keys []string) ([]models.Permission, error) {

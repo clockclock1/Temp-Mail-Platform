@@ -55,14 +55,20 @@ export const MessageAPI = {
 }
 
 export const UserAPI = {
-  list() {
-    return api.get('/users')
+  list(params = {}) {
+    return api.get('/users', { params })
+  },
+  get(id) {
+    return api.get(`/users/${id}`)
   },
   create(payload) {
     return api.post('/users', payload)
   },
   update(id, payload) {
     return api.patch(`/users/${id}`, payload)
+  },
+  resetPassword(id, payload = {}) {
+    return api.post(`/users/${id}/reset-password`, payload)
   },
   remove(id) {
     return api.delete(`/users/${id}`)
@@ -81,6 +87,9 @@ export const RoleAPI = {
   },
   remove(id) {
     return api.delete(`/roles/${id}`)
+  },
+  users(id) {
+    return api.get(`/roles/${id}/users`)
   },
 }
 

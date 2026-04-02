@@ -1,24 +1,29 @@
 ﻿<template>
   <div class="app-shell">
-    <header class="topbar" v-if="auth.isLoggedIn.value">
-      <div class="brand">
-        <span class="dot"></span>
-        <strong>TempMail Console</strong>
+    <aside class="sidebar" v-if="auth.isLoggedIn.value">
+      <div class="logo-wrap">
+        <div class="logo-dot"></div>
+        <div>
+          <h1 class="logo-title">MoMail Console</h1>
+          <p class="logo-sub">Temp Mail Platform</p>
+        </div>
       </div>
-      <nav class="menu">
-        <RouterLink to="/">邮箱</RouterLink>
-        <RouterLink v-if="auth.isAdmin.value" to="/domains">域名</RouterLink>
-        <RouterLink v-if="auth.isAdmin.value" to="/users">用户</RouterLink>
-        <RouterLink v-if="auth.isAdmin.value" to="/roles">角色</RouterLink>
-        <RouterLink v-if="auth.can('config:manage')" to="/config">配置</RouterLink>
-      </nav>
-      <div class="actions">
-        <span class="user">{{ auth.state.user?.username }}</span>
-        <button class="ghost" @click="handleLogout">退出</button>
-      </div>
-    </header>
 
-    <main class="content">
+      <nav class="side-nav">
+        <RouterLink to="/">收件台</RouterLink>
+        <RouterLink v-if="auth.isAdmin.value" to="/domains">域名管理</RouterLink>
+        <RouterLink v-if="auth.can('user:manage')" to="/users">用户管理</RouterLink>
+        <RouterLink v-if="auth.can('role:manage')" to="/roles">角色权限</RouterLink>
+        <RouterLink v-if="auth.can('config:manage')" to="/config">系统配置</RouterLink>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-chip">{{ auth.state.user?.username }}</div>
+        <button class="ghost" @click="handleLogout">退出登录</button>
+      </div>
+    </aside>
+
+    <main class="main-view">
       <RouterView />
     </main>
   </div>

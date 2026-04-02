@@ -146,7 +146,10 @@ docker run -d --name tempmail \
 - 域名：`GET/POST/PUT/DELETE /domains`
 - 邮箱：`GET/POST/DELETE /mailboxes`
 - 邮件：`GET/DELETE /messages`、`GET /messages/:id/raw`
-- 角色权限：`/users`、`/roles`、`/permissions`
+- 角色权限：
+  - 用户：`GET /users`（支持 `q/active/roleId/page/pageSize`）、`GET /users/:id`、`POST /users`、`PATCH /users/:id`、`POST /users/:id/reset-password`、`DELETE /users/:id`
+  - 角色：`GET /roles`、`GET /roles/:id/users`、`POST /roles`、`PUT /roles/:id`、`DELETE /roles/:id`
+  - 权限：`GET /permissions`
 - 统计：`GET /stats`
 - 配置：`GET/PUT /system/config`、`POST /system/config/reload`
 

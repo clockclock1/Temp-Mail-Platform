@@ -1,18 +1,15 @@
 ﻿<template>
-  <div class="grid" style="gap: 16px">
-    <section class="card">
-      <h1>系统配置</h1>
-      <p class="meta">配置修改后会写入配置文件，并立即应用可热更新项。</p>
-      <p class="meta">需要重启才生效的项：`http_addr`、`smtp_addr`、`db_path`。</p>
+  <div class="page grid" style="gap: 12px">
+    <section class="card soft">
+      <h1 class="section-title">系统配置中心</h1>
+      <p class="section-sub">保存即写入配置文件并应用运行时配置。涉及监听地址和数据库路径的修改会提示重启。</p>
+    </section>
 
-      <div class="grid grid-2">
+    <section class="card">
+      <div class="grid grid-3">
         <label>
           app_name
           <input v-model="form.appName" />
-        </label>
-        <label>
-          web_dir
-          <input v-model="form.webDir" />
         </label>
         <label>
           http_addr
@@ -22,6 +19,11 @@
           smtp_addr
           <input v-model="form.smtpAddr" />
         </label>
+
+        <label>
+          web_dir
+          <input v-model="form.webDir" />
+        </label>
         <label>
           db_path
           <input v-model="form.dbPath" />
@@ -30,6 +32,7 @@
           data_dir
           <input v-model="form.dataDir" />
         </label>
+
         <label>
           jwt_secret
           <input v-model="form.jwtSecret" />
@@ -42,6 +45,7 @@
           legacy_admin_auth
           <input v-model="form.legacyAdminAuth" />
         </label>
+
         <label>
           legacy_custom_auth
           <input v-model="form.legacyCustomAuth" />
@@ -54,6 +58,7 @@
           cleanup_interval_minutes
           <input type="number" min="1" v-model.number="form.cleanupIntervalMinutes" />
         </label>
+
         <label>
           default_admin_user
           <input v-model="form.defaultAdminUser" />
@@ -64,23 +69,23 @@
         </label>
       </div>
 
-      <label>
-        cors_origins（每行一个或逗号分隔）
+      <label style="margin-top: 10px; display: block">
+        cors_origins（每行一个）
         <textarea v-model="corsText" rows="4"></textarea>
       </label>
 
-      <div style="display:flex; gap: 8px; margin-top: 12px">
-        <button class="primary" @click="save" :disabled="saving">{{ saving ? '保存中...' : '保存并应用' }}</button>
-        <button class="secondary" @click="reloadFromFile" :disabled="saving">从配置文件重新加载</button>
+      <div class="row" style="margin-top: 10px">
+        <button class="primary" :disabled="saving" @click="save">{{ saving ? '保存中...' : '保存并应用' }}</button>
+        <button class="secondary" :disabled="saving" @click="reloadFromFile">从文件重载</button>
       </div>
 
-      <p v-if="error" class="error">{{ error }}</p>
-      <p v-if="success" class="success">{{ success }}</p>
-      <p v-if="restartRequired" class="error">检测到需要重启服务的配置变更，请重启后端使其完全生效。</p>
+      <p v-if="success" class="success" style="margin-top: 8px">{{ success }}</p>
+      <p v-if="error" class="error" style="margin-top: 8px">{{ error }}</p>
+      <p v-if="restartRequired" class="error" style="margin-top: 8px">部分配置需要重启服务才能完全生效。</p>
     </section>
 
     <section class="card" v-if="warnings.length">
-      <h2>应用提示</h2>
+      <h2 class="section-title" style="font-size: 16px">应用提示</h2>
       <ul>
         <li v-for="(w, i) in warnings" :key="i">{{ w }}</li>
       </ul>
@@ -145,10 +150,7 @@ async function save() {
   restartRequired.value = false
 
   try {
-    const payload = {
-      ...form,
-      corsOrigins: parseCorsOrigins(corsText.value),
-    }
+    const payload = { ...form, corsOrigins: parseCorsOrigins(corsText.value) }
     const { data } = await SystemAPI.updateConfig(payload)
     assignForm(data.item)
     warnings.value = data.warnings || []
@@ -173,7 +175,7 @@ async function reloadFromFile() {
     assignForm(data.item)
     warnings.value = data.warnings || []
     restartRequired.value = !!data.restartRequired
-    success.value = '已从配置文件重新加载并应用。'
+    success.value = '已从配置文件重载并应用。'
   } catch (e) {
     error.value = e?.response?.data?.error || '重载失败'
   } finally {

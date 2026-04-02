@@ -1,26 +1,26 @@
-<template>
+﻿<template>
   <div class="login-wrap">
     <div class="card login-card">
-      <h1>登录控制台</h1>
-      <p class="meta">登录后才能创建和管理临时邮箱。</p>
+      <h1 class="section-title">登录控制台</h1>
+      <p class="section-sub">管理员与授权用户可创建临时邮箱、查看邮件、管理系统。</p>
 
-      <div class="grid">
+      <div class="grid" style="margin-top: 12px">
         <label>
           用户名
           <input v-model="form.username" placeholder="admin" @keyup.enter="submit" />
         </label>
         <label>
           密码
-          <input v-model="form.password" placeholder="请输入密码" type="password" @keyup.enter="submit" />
+          <input v-model="form.password" type="password" placeholder="请输入密码" @keyup.enter="submit" />
         </label>
       </div>
 
-      <button class="primary" style="margin-top: 12px; width: 100%" @click="submit" :disabled="loading">
+      <button class="primary" style="width: 100%; margin-top: 12px" :disabled="loading" @click="submit">
         {{ loading ? '登录中...' : '登录' }}
       </button>
 
-      <p v-if="error" class="error">{{ error }}</p>
-      <p class="meta" style="margin-top: 12px">默认管理员账号来自配置文件 `default_admin_user/default_admin_pass`。</p>
+      <p v-if="error" class="error" style="margin-top: 10px">{{ error }}</p>
+      <p class="meta" style="margin-top: 10px">默认账号来自配置文件：`default_admin_user` / `default_admin_pass`</p>
     </div>
   </div>
 </template>
@@ -45,8 +45,7 @@ async function submit() {
   try {
     const { data } = await AuthAPI.login(form)
     auth.setAuth(data)
-    const next = typeof route.query.next === 'string' ? route.query.next : '/'
-    router.push(next)
+    router.push(typeof route.query.next === 'string' ? route.query.next : '/')
   } catch (e) {
     error.value = e?.response?.data?.error || '登录失败'
   } finally {

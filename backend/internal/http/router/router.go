@@ -86,8 +86,10 @@ func New(
 			users.Use(middleware.RequirePermission(models.PermUserManage))
 			{
 				users.GET("", userHandler.List)
+				users.GET("/:id", userHandler.Get)
 				users.POST("", userHandler.Create)
 				users.PATCH("/:id", userHandler.Update)
+				users.POST("/:id/reset-password", userHandler.ResetPassword)
 				users.DELETE("/:id", userHandler.Delete)
 			}
 
@@ -95,6 +97,7 @@ func New(
 			roles.Use(middleware.RequirePermission(models.PermRoleManage))
 			{
 				roles.GET("", roleHandler.List)
+				roles.GET("/:id/users", roleHandler.Users)
 				roles.POST("", roleHandler.Create)
 				roles.PUT("/:id", roleHandler.Update)
 				roles.DELETE("/:id", roleHandler.Delete)
