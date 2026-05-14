@@ -92,7 +92,7 @@ docker compose up -d
 
 - `ghcr.io/clockclock1/tempmail:latest`
 - 每次正式 Release 发布后，GitHub Actions 会同步更新 `latest`
-- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.4`
+- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.7`
 
 默认挂载：
 
@@ -108,7 +108,7 @@ docker compose up -d
 
 - Web 控制台：`http://localhost:8080`
 - API：`http://localhost:8080/api/v1`
-- SMTP：`localhost:2525`
+- SMTP：`localhost:25`（容器内监听 `2525`）
 
 ### 4) Docker Run（单镜像）
 
@@ -118,7 +118,7 @@ docker build -f backend/Dockerfile -t tempmail:local .
 docker run -d --name tempmail \
   --restart unless-stopped \
   -p 8080:8080 \
-  -p 2525:2525 \
+  -p 25:2525 \
   -v $(pwd)/data/backend:/app/data \
   -v $(pwd)/config:/app/config \
   tempmail:local
@@ -137,7 +137,9 @@ docker run -d --name tempmail \
 
 - Web/API 走 `8080`
 - SMTP 收信需要公网可达 SMTP 入口（通常端口 25）
-- 若 ClawCloud Run 当前实例不直接开放 SMTP 25，建议增加一层 SMTP 网关/VPS 转发到本服务 `2525`
+- Compose 默认将宿主机 `25` 映射到容器内 `2525`
+- 若 `25` 端口被占用，可设置 `TEMPMAIL_SMTP_PORT=2525` 等值覆盖宿主机端口
+- 若云平台不直接开放 SMTP 25，建议增加一层 SMTP 网关/VPS 转发到本服务 `2525`
 
 ## MX 配置示例
 
@@ -145,7 +147,7 @@ docker run -d --name tempmail \
 
 1. `A` 记录：`mail.example.com -> 服务器公网 IP`
 2. `MX` 记录：`mail.example.com -> mail.example.com`
-3. 开放 SMTP 入站（公网 25 到服务 `2525`）
+3. 开放 SMTP 入站（公网 25 到宿主机 25，再映射到容器 `2525`）
 4. 登录后在“域名管理”新增 `mail.example.com`
 5. 创建地址如 `demo@mail.example.com` 验证收信
 

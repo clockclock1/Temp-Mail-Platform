@@ -1,62 +1,130 @@
-import { reactive, computed } from 'vue'
-import { api } from '../api/client'
+import { computed, reactive } from 'vue'
+import { AuthAPI } from '../api'
 
-const TOKEN_KEY = 'tm_token'
-const USER_KEY = 'tm_user'
-const PERMS_KEY = 'tm_perms'
+const LOCAL_STORAGE_KEY = 'tempmail.console.auth'
+const SESSION_STORAGE_KEY = 'tempmail.console.auth.session'
 
-const state = reactive({
-  token: localStorage.getItem(TOKEN_KEY) || '',
-  user: JSON.parse(localStorage.getItem(USER_KEY) || 'null'),
-  perms: JSON.parse(localStorage.getItem(PERMS_KEY) || '[]'),
-})
-
-if (state.token) {
-  api.defaults.headers.common.Authorization = `Bearer ${state.token}`
-}
-
-const isLoggedIn = computed(() => !!state.token)
-const isAdmin = computed(() => state.user?.role?.name === 'admin')
-
-function persist() {
-  if (state.token) {
-    localStorage.setItem(TOKEN_KEY, state.token)
-    localStorage.setItem(USER_KEY, JSON.stringify(state.user))
-    localStorage.setItem(PERMS_KEY, JSON.stringify(state.perms))
-    api.defaults.headers.common.Authorization = `Bearer ${state.token}`
-  } else {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    localStorage.removeItem(PERMS_KEY)
-    delete api.defaults.headers.common.Authorization
+function safeParse(raw) {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
   }
 }
 
-function setAuth(payload) {
-  state.token = payload.token
-  state.user = payload.user
-  state.perms = payload.perms || []
-  persist()
+function readSnapshot() {
+  const sessionPayload = safeParse(window.sessionStorage.getItem(SESSION_STORAGE_KEY))
+  if (sessionPayload?.token) {
+    return { payload: sessionPayload, remember: false }
+  }
+
+  const localPayload = safeParse(window.localStorage.getItem(LOCAL_STORAGE_KEY))
+  if (localPayload?.token) {
+    return { payload: localPayload, remember: true }
+  }
+
+  return { payload: null, remember: true }
+}
+
+function clearPersisted() {
+  window.localStorage.removeItem(LOCAL_STORAGE_KEY)
+  window.sessionStorage.removeItem(SESSION_STORAGE_KEY)
+}
+
+function persistSnapshot(snapshot, remember) {
+  clearPersisted()
+  const storage = remember ? window.localStorage : window.sessionStorage
+  const key = remember ? LOCAL_STORAGE_KEY : SESSION_STORAGE_KEY
+  storage.setItem(key, JSON.stringify(snapshot))
+}
+
+const restored = readSnapshot()
+
+const state = reactive({
+  token: restored.payload?.token || '',
+  user: restored.payload?.user || null,
+  perms: Array.isArray(restored.payload?.perms) ? restored.payload.perms : [],
+  remember: restored.remember,
+  loading: false,
+  initialized: !restored.payload?.token,
+})
+
+const isLoggedIn = computed(() => Boolean(state.token))
+const isAdmin = computed(() => String(state.user?.role?.name || '').toLowerCase() === 'admin')
+
+let refreshPromise = null
+
+function setAuth(payload, remember = true) {
+  state.token = payload.token || state.token || ''
+  state.user = payload.user || null
+  state.perms = Array.isArray(payload.perms) ? payload.perms : []
+  state.remember = remember
+  state.initialized = true
+
+  if (state.token) {
+    persistSnapshot(
+      {
+        token: state.token,
+        user: state.user,
+        perms: state.perms,
+      },
+      remember,
+    )
+  } else {
+    clearPersisted()
+  }
+}
+
+function can(permission) {
+  if (!permission) return true
+  return isAdmin.value || state.perms.includes(permission)
 }
 
 function logout() {
   state.token = ''
   state.user = null
   state.perms = []
-  persist()
+  state.remember = true
+  state.loading = false
+  state.initialized = true
+  clearPersisted()
 }
 
-async function refreshMe() {
-  if (!state.token) return
-  const { data } = await api.get('/auth/me')
-  state.user = data.user
-  state.perms = data.perms || []
-  persist()
-}
+async function refreshMe(force = false) {
+  if (!state.token) {
+    state.initialized = true
+    return null
+  }
 
-function can(permission) {
-  if (isAdmin.value) return true
-  return state.perms.includes(permission)
+  if (refreshPromise && !force) {
+    return refreshPromise
+  }
+
+  refreshPromise = (async () => {
+    state.loading = true
+    try {
+      const { data } = await AuthAPI.me()
+      setAuth(
+        {
+          token: state.token,
+          user: data.user,
+          perms: data.perms,
+        },
+        state.remember,
+      )
+      return data.user
+    } catch (error) {
+      logout()
+      throw error
+    } finally {
+      state.loading = false
+      state.initialized = true
+      refreshPromise = null
+    }
+  })()
+
+  return refreshPromise
 }
 
 export function useAuthStore() {
@@ -65,8 +133,8 @@ export function useAuthStore() {
     isLoggedIn,
     isAdmin,
     setAuth,
-    logout,
     refreshMe,
     can,
+    logout,
   }
 }

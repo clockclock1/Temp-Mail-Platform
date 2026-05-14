@@ -21,8 +21,15 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  if (auth.isLoggedIn.value && !auth.state.initialized) {
+    try {
+      await auth.refreshMe()
+    } catch {
+      // The response interceptor will clear the token and redirect if needed.
+    }
+  }
   if (to.meta.requiresAuth && !auth.isLoggedIn.value) {
     return { name: 'login', query: { next: to.fullPath } }
   }
