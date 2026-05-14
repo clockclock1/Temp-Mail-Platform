@@ -34,10 +34,9 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/tempmail
           tags: |
-            type=ref,event=branch
             type=ref,event=tag
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.event.release.prerelease == false }}
 
       - name: Build app image (backend + frontend)
         uses: docker/build-push-action@v6

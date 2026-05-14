@@ -1,9 +1,7 @@
-﻿version: '3.9'
+version: '3.9'
 services:
   tempmail:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    image: ${TEMPMAIL_IMAGE:-ghcr.io/clockclock1/tempmail:latest}
     container_name: tempmail
     restart: unless-stopped
     volumes:
