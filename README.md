@@ -92,7 +92,7 @@ docker compose up -d
 
 - `ghcr.io/clockclock1/tempmail:latest`
 - 每次正式 Release 发布后，GitHub Actions 会同步更新 `latest`
-- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.7`
+- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.8`
 
 默认挂载：
 
