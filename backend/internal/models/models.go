@@ -32,12 +32,16 @@ type Permission struct {
 }
 
 type Domain struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Name      string    `gorm:"size:255;uniqueIndex;not null" json:"name"`
-	Enabled   bool      `gorm:"default:true" json:"enabled"`
-	CreatedBy uint      `json:"createdBy"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Name        string    `gorm:"size:255;uniqueIndex;not null" json:"name"`
+	Enabled     bool      `gorm:"default:true" json:"enabled"`
+	Level       int       `gorm:"default:2" json:"level"`
+	RandomLevel bool      `gorm:"default:false" json:"randomLevel"`
+	LevelMin    int       `gorm:"default:1" json:"levelMin"`
+	LevelMax    int       `gorm:"default:7" json:"levelMax"`
+	CreatedBy   uint      `json:"createdBy"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 type Mailbox struct {

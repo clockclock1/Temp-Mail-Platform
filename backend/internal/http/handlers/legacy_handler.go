@@ -454,6 +454,7 @@ func (h *LegacyHandler) resolveDomain(name string, allowCreate bool, creatorID u
 		return nil, fmt.Errorf("domain not found")
 	}
 	domain = models.Domain{Name: name, Enabled: true, CreatedBy: creatorID}
+	domain.Level = util.DomainLevelFromName(name)
 	if err := h.db.Create(&domain).Error; err != nil {
 		return nil, err
 	}

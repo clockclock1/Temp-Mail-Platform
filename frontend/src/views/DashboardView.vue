@@ -17,7 +17,7 @@
           <input v-model="createForm.localPart" placeholder="邮箱前缀，例如 qa-user" style="width: 210px" />
           <select v-model.number="createForm.domainId" style="width: 190px">
             <option :value="0">选择域名</option>
-            <option v-for="d in domains" :key="d.id" :value="d.id">{{ d.name }}</option>
+            <option v-for="d in domains" :key="d.id" :value="d.id">{{ d.name }} · {{ levelLabel(d) }}</option>
           </select>
           <input v-model.number="createForm.ttlHours" type="number" min="1" max="720" style="width: 110px" />
           <button class="primary" :disabled="creating" @click="createMailbox">{{ creating ? '创建中...' : '创建邮箱' }}</button>
@@ -44,7 +44,7 @@
               <strong>{{ m.localPart }}</strong>
               <span class="badge" :class="m.enabled ? 'ok' : 'off'">{{ m.enabled ? '启用' : '禁用' }}</span>
             </div>
-            <div class="meta" style="margin-top: 4px">@{{ m.domain?.name }}</div>
+            <div class="meta" style="margin-top: 4px">@{{ m.domain?.name }} · {{ levelLabel(m.domain) }}</div>
             <div class="meta" style="margin-top: 2px">{{ formatRemaining(m.remainingSeconds) }}</div>
             <div class="row" style="margin-top: 8px">
               <button class="ghost" @click.stop="copy(m.address)">复制</button>
@@ -249,5 +249,24 @@ function shortTime(v) {
 
 function fullTime(v) {
   return new Date(v).toLocaleString()
+}
+
+function levelLabel(domain) {
+  if (!domain) return '-'
+  if (domain.randomLevel) {
+    const min = domain.levelMin || 1
+    const max = domain.levelMax || 7
+    return `${min}-${max}级随机`
+  }
+  if (domain.level) return `${domain.level}级`
+  return `${countLabels(domain.name)}级`
+}
+
+function countLabels(name) {
+  const count = String(name || '')
+    .split('.')
+    .map((v) => v.trim())
+    .filter(Boolean).length
+  return count > 0 ? count : 2
 }
 </script>

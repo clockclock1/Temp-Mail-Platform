@@ -16,6 +16,9 @@ export const DomainAPI = {
   list() {
     return api.get('/domains')
   },
+  push(payload) {
+    return api.post('/domains/push', payload)
+  },
   create(payload) {
     return api.post('/domains', payload)
   },

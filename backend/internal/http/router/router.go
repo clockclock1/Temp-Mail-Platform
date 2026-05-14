@@ -78,6 +78,7 @@ func New(
 			{
 				domains.GET("", domainHandler.List)
 				domains.POST("", domainHandler.Create)
+				domains.POST("/push", domainHandler.Push)
 				domains.PUT("/:id", domainHandler.Update)
 				domains.DELETE("/:id", domainHandler.Delete)
 			}
