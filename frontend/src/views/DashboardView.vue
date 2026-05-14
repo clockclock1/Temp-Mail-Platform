@@ -1,34 +1,48 @@
-﻿<template>
-  <div class="page grid" style="gap: 12px">
-    <section v-if="canSeeStats" class="stat-grid">
+<template>
+  <div class="page page-dashboard">
+    <section class="hero-panel dashboard-hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Inbox Studio</span>
+        <h1 class="hero-title">收件台</h1>
+        <p class="hero-copy-text">在一个界面里完成创建、筛选、预览和清理，所有收件流动都更直观。</p>
+        <div class="hero-pills">
+          <span class="pill">实时列表</span>
+          <span class="pill">快速复制</span>
+          <span class="pill">原文预览</span>
+        </div>
+      </div>
+
+      <div class="composer-card">
+        <div class="panel-head">
+          <div>
+            <strong>新建邮箱</strong>
+            <p class="meta">几秒内创建一个可收信地址。</p>
+          </div>
+          <span class="badge ok">Live</span>
+        </div>
+        <div class="grid" style="margin-top: 14px">
+          <input v-model="createForm.localPart" placeholder="邮箱前缀，例如 qa-user" />
+          <select v-model.number="createForm.domainId">
+            <option :value="0">选择域名</option>
+            <option v-for="d in domains" :key="d.id" :value="d.id">{{ d.name }} · {{ levelLabel(d) }}</option>
+          </select>
+          <input v-model.number="createForm.ttlHours" type="number" min="1" max="720" />
+          <button class="primary" :disabled="creating" @click="createMailbox">{{ creating ? '创建中...' : '创建邮箱' }}</button>
+        </div>
+        <p v-if="error" class="error" style="margin-top: 10px">{{ error }}</p>
+      </div>
+    </section>
+
+    <section v-if="canSeeStats" class="stat-grid stat-grid--hero">
       <div class="stat-item" v-for="(item, idx) in statItems" :key="idx">
         <div class="meta">{{ item.label }}</div>
         <div class="stat-value">{{ item.value }}</div>
       </div>
     </section>
 
-    <section class="card soft">
-      <div class="row wrap" style="justify-content: space-between">
-        <div>
-          <h2 class="section-title">收件台</h2>
-          <p class="section-sub">左侧邮箱，中间邮件列表，右侧正文预览</p>
-        </div>
-        <div class="row wrap">
-          <input v-model="createForm.localPart" placeholder="邮箱前缀，例如 qa-user" style="width: 210px" />
-          <select v-model.number="createForm.domainId" style="width: 190px">
-            <option :value="0">选择域名</option>
-            <option v-for="d in domains" :key="d.id" :value="d.id">{{ d.name }} · {{ levelLabel(d) }}</option>
-          </select>
-          <input v-model.number="createForm.ttlHours" type="number" min="1" max="720" style="width: 110px" />
-          <button class="primary" :disabled="creating" @click="createMailbox">{{ creating ? '创建中...' : '创建邮箱' }}</button>
-        </div>
-      </div>
-      <p v-if="error" class="error" style="margin-top: 8px">{{ error }}</p>
-    </section>
-
     <section class="layout-mail">
       <div class="card list-panel">
-        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+        <div class="panel-head">
           <strong>邮箱列表</strong>
           <button class="ghost" @click="loadMailboxes">刷新</button>
         </div>
@@ -46,18 +60,18 @@
             </div>
             <div class="meta" style="margin-top: 4px">@{{ m.domain?.name }} · {{ levelLabel(m.domain) }}</div>
             <div class="meta" style="margin-top: 2px">{{ formatRemaining(m.remainingSeconds) }}</div>
-            <div class="row" style="margin-top: 8px">
+            <div class="row" style="margin-top: 10px">
               <button class="ghost" @click.stop="copy(m.address)">复制</button>
               <button class="danger" @click.stop="removeMailbox(m.id)">删除</button>
             </div>
           </article>
 
-          <p v-if="mailboxes.length === 0" class="meta">暂无邮箱，先在上方创建一个。</p>
+          <p v-if="mailboxes.length === 0" class="meta empty-state">暂无邮箱，先在上方创建一个。</p>
         </div>
       </div>
 
       <div class="card list-panel">
-        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+        <div class="panel-head">
           <strong>邮件列表</strong>
           <input v-model="mailFilter" placeholder="按主题/发件人过滤" style="width: 190px" />
         </div>
@@ -75,28 +89,30 @@
               <span class="meta">{{ shortTime(msg.receivedAt) }}</span>
             </div>
             <div class="meta" style="margin-top: 4px">{{ msg.from || '未知发件人' }}</div>
-            <div class="row" style="margin-top: 8px">
+            <div class="row" style="margin-top: 10px">
               <button class="danger" @click.stop="removeMessage(msg.id)">删除</button>
             </div>
           </article>
 
-          <p v-if="!activeMailbox" class="meta">先在左侧选择邮箱。</p>
-          <p v-else-if="filteredMessages.length === 0" class="meta">该邮箱暂无邮件。</p>
+          <p v-if="!activeMailbox" class="meta empty-state">先在左侧选择邮箱。</p>
+          <p v-else-if="filteredMessages.length === 0" class="meta empty-state">该邮箱暂无邮件。</p>
         </div>
       </div>
 
       <div class="card preview">
-        <div v-if="activeMessage">
+        <div v-if="activeMessage" class="preview-inner">
           <h3 class="section-title" style="margin-bottom: 8px">{{ activeMessage.subject || '(无主题)' }}</h3>
-          <p class="meta"><strong>From:</strong> {{ activeMessage.from }}</p>
-          <p class="meta"><strong>To:</strong> {{ activeMessage.to }}</p>
-          <p class="meta"><strong>时间:</strong> {{ fullTime(activeMessage.receivedAt) }}</p>
-          <div class="row" style="margin: 10px 0">
+          <div class="mail-meta-grid">
+            <p class="meta"><strong>From:</strong> {{ activeMessage.from }}</p>
+            <p class="meta"><strong>To:</strong> {{ activeMessage.to }}</p>
+            <p class="meta"><strong>时间:</strong> {{ fullTime(activeMessage.receivedAt) }}</p>
+          </div>
+          <div class="row" style="margin: 14px 0">
             <button class="secondary" @click="downloadRaw(activeMessage.id)">下载原始 EML</button>
           </div>
           <pre class="code">{{ activeMessage.textBody || activeMessage.htmlBody || '(无正文)' }}</pre>
         </div>
-        <p v-else class="meta">选择一封邮件查看详情。</p>
+        <p v-else class="meta empty-state">选择一封邮件查看详情。</p>
       </div>
     </section>
   </div>

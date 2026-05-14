@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"tempmail/backend/internal/http/middleware"
 	"tempmail/backend/internal/models"
@@ -67,14 +68,24 @@ func (h *DomainHandler) Create(c *gin.Context) {
 		return
 	}
 
-	domain := models.Domain{
-		Name:      strings.ToLower(strings.TrimSpace(req.Name)),
-		Enabled:   true,
-		CreatedBy: user.ID,
-	}
-	if domain.Name == "" {
+	name := strings.ToLower(strings.TrimSpace(req.Name))
+	if name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "domain name cannot be empty"})
 		return
+	}
+	mxRecords, err := util.LookupMXRecords(name)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	domain := models.Domain{
+		Name:        name,
+		Enabled:     true,
+		MXVerified:  true,
+		MXRecords:   strings.Join(mxRecords, "\n"),
+		MXCheckedAt: ptrTime(time.Now()),
+		CreatedBy:   user.ID,
 	}
 	h.applyDomainConfig(&domain, req)
 
@@ -101,13 +112,24 @@ func (h *DomainHandler) Update(c *gin.Context) {
 	}
 
 	if req.Name != "" {
-		domain.Name = strings.ToLower(strings.TrimSpace(req.Name))
-		if domain.Name == "" {
+		name := strings.ToLower(strings.TrimSpace(req.Name))
+		if name == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "domain name cannot be empty"})
 			return
 		}
-		if req.Level == nil {
-			domain.Level = util.DomainLevelFromName(domain.Name)
+		if name != domain.Name {
+			mxRecords, err := util.LookupMXRecords(name)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			domain.Name = name
+			domain.MXVerified = true
+			domain.MXRecords = strings.Join(mxRecords, "\n")
+			domain.MXCheckedAt = ptrTime(time.Now())
+			if req.Level == nil {
+				domain.Level = util.DomainLevelFromName(domain.Name)
+			}
 		}
 	}
 	h.applyDomainConfig(&domain, req)
@@ -138,9 +160,18 @@ func (h *DomainHandler) Push(c *gin.Context) {
 			continue
 		}
 
+		mxRecords, err := util.LookupMXRecords(name)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		var domain models.Domain
-		err := h.db.Where("name = ?", name).First(&domain).Error
+		err = h.db.Where("name = ?", name).First(&domain).Error
 		if err == nil {
+			domain.MXVerified = true
+			domain.MXRecords = strings.Join(mxRecords, "\n")
+			domain.MXCheckedAt = ptrTime(time.Now())
 			h.applyDomainConfig(&domain, domainRequest{
 				Name:        name,
 				Enabled:     req.Enabled,
@@ -157,15 +188,18 @@ func (h *DomainHandler) Push(c *gin.Context) {
 			items = append(items, domain)
 			continue
 		}
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		domain = models.Domain{
-			Name:      name,
-			Enabled:   true,
-			CreatedBy: user.ID,
+			Name:        name,
+			Enabled:     true,
+			MXVerified:  true,
+			MXRecords:   strings.Join(mxRecords, "\n"),
+			MXCheckedAt: ptrTime(time.Now()),
+			CreatedBy:   user.ID,
 		}
 		h.applyDomainConfig(&domain, domainRequest{
 			Name:        name,
@@ -231,4 +265,8 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func ptrTime(t time.Time) *time.Time {
+	return &t
 }

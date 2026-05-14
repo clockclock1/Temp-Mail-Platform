@@ -46,6 +46,7 @@ func New(
 	{
 		legacyAPI.POST("/new_address", legacyHandler.APINewAddress)
 		legacyAPI.GET("/mails", legacyHandler.APIMails)
+		legacyAPI.DELETE("/delete_address", legacyHandler.APIDeleteAddress)
 	}
 	legacyAdmin := r.Group("/admin")
 	{

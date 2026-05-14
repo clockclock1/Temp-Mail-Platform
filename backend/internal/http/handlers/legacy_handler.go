@@ -63,7 +63,7 @@ func (h *LegacyHandler) AdminNewAddress(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.createAddress(c, req, owner, true)
+	h.createAddress(c, req, owner)
 }
 
 func (h *LegacyHandler) APINewAddress(c *gin.Context) {
@@ -77,7 +77,7 @@ func (h *LegacyHandler) APINewAddress(c *gin.Context) {
 	}
 
 	if owner, ok := h.tryAdmin(c); ok {
-		h.createAddress(c, req, owner, true)
+		h.createAddress(c, req, owner)
 		return
 	}
 
@@ -89,7 +89,7 @@ func (h *LegacyHandler) APINewAddress(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "permission denied"})
 		return
 	}
-	h.createAddress(c, req, user, false)
+	h.createAddress(c, req, user)
 }
 
 func (h *LegacyHandler) APIMails(c *gin.Context) {
@@ -123,6 +123,32 @@ func (h *LegacyHandler) APIMails(c *gin.Context) {
 		"offset": offset,
 		"total":  total,
 	})
+}
+
+func (h *LegacyHandler) APIDeleteAddress(c *gin.Context) {
+	if !h.ensureCustomAuth(c) {
+		return
+	}
+	claims, ok := h.ensureAddressToken(c)
+	if !ok {
+		return
+	}
+
+	var mailbox models.Mailbox
+	if err := h.db.First(&mailbox, claims.MailboxID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
+		return
+	}
+	deleted, err := h.deleteMailboxMessages(mailbox.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.db.Delete(&mailbox).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "deletedMails": deleted, "address_id": mailbox.ID, "id": mailbox.ID})
 }
 
 func (h *LegacyHandler) AdminMails(c *gin.Context) {
@@ -239,7 +265,7 @@ func (h *LegacyHandler) AdminDeleteAddress(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "deletedMails": deleted, "id": mailbox.ID})
+	c.JSON(http.StatusOK, gin.H{"success": true, "deletedMails": deleted, "address_id": mailbox.ID, "id": mailbox.ID})
 }
 
 func (h *LegacyHandler) AdminClearInbox(c *gin.Context) {
@@ -259,7 +285,7 @@ func (h *LegacyHandler) AdminClearInbox(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "deletedMails": deleted, "id": id})
+	c.JSON(http.StatusOK, gin.H{"success": true, "deletedMails": deleted, "address_id": id, "id": id})
 }
 
 func (h *LegacyHandler) AdminClearSentItems(c *gin.Context) {
@@ -274,7 +300,7 @@ func (h *LegacyHandler) AdminClearSentItems(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "deletedMails": 0, "id": id, "note": "sent items are not stored by this service"})
+	c.JSON(http.StatusOK, gin.H{"success": true, "deletedMails": 0, "address_id": id, "id": id, "note": "sent items are not stored by this service"})
 }
 
 func (h *LegacyHandler) UserLogin(c *gin.Context) {
@@ -354,7 +380,7 @@ func (h *LegacyHandler) UserRegister(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"jwt": token, "token": token, "user": user, "perms": util.PermissionKeys(user)})
 }
 
-func (h *LegacyHandler) createAddress(c *gin.Context, req legacyNewAddressRequest, owner models.User, allowCreateDomain bool) {
+func (h *LegacyHandler) createAddress(c *gin.Context, req legacyNewAddressRequest, owner models.User) {
 	localPart := strings.ToLower(strings.TrimSpace(req.Name))
 	if localPart == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
@@ -366,17 +392,12 @@ func (h *LegacyHandler) createAddress(c *gin.Context, req legacyNewAddressReques
 	req.TTLHours = normalizeTTL(req.TTLHours)
 
 	domainName := strings.ToLower(strings.TrimSpace(req.Domain))
-	domain, err := h.resolveDomain(domainName, allowCreateDomain, owner.ID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	mailbox, err := h.mailSvc.CreateMailbox(owner.ID, localPart, domain.ID, "legacy-api", req.TTLHours)
+	cfg := h.cfgManager.Get()
+	mailbox, err := h.mailSvc.CreateMailboxForDomainName(owner.ID, localPart, domainName, "legacy-api", req.TTLHours, cfg.LegacyAllowSubdomainMatch)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "exists") {
 			localPart = fmt.Sprintf("%s-%s", localPart, util.RandomAlphaNum(4))
-			mailbox, err = h.mailSvc.CreateMailbox(owner.ID, localPart, domain.ID, "legacy-api", req.TTLHours)
+			mailbox, err = h.mailSvc.CreateMailboxForDomainName(owner.ID, localPart, domainName, "legacy-api", req.TTLHours, cfg.LegacyAllowSubdomainMatch)
 		}
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -392,11 +413,12 @@ func (h *LegacyHandler) createAddress(c *gin.Context, req legacyNewAddressReques
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":      mailbox.ID,
-		"address": address,
-		"jwt":     token,
-		"token":   token,
-		"mailbox": mailbox,
+		"id":         mailbox.ID,
+		"address_id": mailbox.ID,
+		"address":    address,
+		"jwt":        token,
+		"token":      token,
+		"mailbox":    mailbox,
 	})
 }
 
@@ -436,29 +458,6 @@ func (h *LegacyHandler) listMessages(base *gorm.DB, limit, offset int) ([]gin.H,
 		})
 	}
 	return items, total, nil
-}
-
-func (h *LegacyHandler) resolveDomain(name string, allowCreate bool, creatorID uint) (*models.Domain, error) {
-	var domain models.Domain
-	err := h.db.Where("name = ?", name).First(&domain).Error
-	if err == nil {
-		if !domain.Enabled {
-			return nil, fmt.Errorf("domain disabled")
-		}
-		return &domain, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-	if !allowCreate {
-		return nil, fmt.Errorf("domain not found")
-	}
-	domain = models.Domain{Name: name, Enabled: true, CreatedBy: creatorID}
-	domain.Level = util.DomainLevelFromName(name)
-	if err := h.db.Create(&domain).Error; err != nil {
-		return nil, err
-	}
-	return &domain, nil
 }
 
 func (h *LegacyHandler) ensureCustomAuth(c *gin.Context) bool {

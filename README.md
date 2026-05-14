@@ -97,7 +97,12 @@ docker compose up -d
 默认挂载：
 
 - `./data/backend -> /app/data`
-- `./config/config.yaml -> /app/config/config.yaml`
+- `./config -> /app/config`
+
+说明：
+
+- 首次启动时会自动创建 `./config/config.yaml`
+- `./data/backend` 和 `./config` 不需要提前手工建文件
 
 访问：
 
@@ -115,7 +120,7 @@ docker run -d --name tempmail \
   -p 8080:8080 \
   -p 2525:2525 \
   -v $(pwd)/data/backend:/app/data \
-  -v $(pwd)/config/config.yaml:/app/config/config.yaml \
+  -v $(pwd)/config:/app/config \
   tempmail:local
 ```
 

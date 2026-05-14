@@ -8,12 +8,12 @@ import ConfigView from '../views/ConfigView.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
-  { path: '/login', name: 'login', component: LoginView, meta: { guestOnly: true } },
-  { path: '/', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
-  { path: '/domains', name: 'domains', component: DomainsView, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/users', name: 'users', component: UsersView, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/roles', name: 'roles', component: RolesView, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/config', name: 'config', component: ConfigView, meta: { requiresAuth: true, permission: 'config:manage' } },
+  { path: '/login', name: 'login', component: LoginView, meta: { guestOnly: true, title: '欢迎回来', subtitle: '登录后进入临时邮箱指挥台。' } },
+  { path: '/', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true, title: '收件台', subtitle: '创建地址、浏览邮件、快速处理收件流。' } },
+  { path: '/domains', name: 'domains', component: DomainsView, meta: { requiresAuth: true, adminOnly: true, title: '域名管理', subtitle: '维护域名池、多级泛解析和推送策略。' } },
+  { path: '/users', name: 'users', component: UsersView, meta: { requiresAuth: true, adminOnly: true, title: '用户管理', subtitle: '控制成员、角色和账号状态。' } },
+  { path: '/roles', name: 'roles', component: RolesView, meta: { requiresAuth: true, adminOnly: true, title: '角色权限', subtitle: '按职责组织权限矩阵与成员分工。' } },
+  { path: '/config', name: 'config', component: ConfigView, meta: { requiresAuth: true, permission: 'config:manage', title: '系统配置', subtitle: '调整运行参数并实时应用配置。' } },
 ]
 
 const router = createRouter({

@@ -13,40 +13,42 @@ import (
 )
 
 type Config struct {
-	AppName                string   `yaml:"app_name" json:"appName"`
-	HTTPAddr               string   `yaml:"http_addr" json:"httpAddr"`
-	SMTPAddr               string   `yaml:"smtp_addr" json:"smtpAddr"`
-	WebDir                 string   `yaml:"web_dir" json:"webDir"`
-	JWTSecret              string   `yaml:"jwt_secret" json:"jwtSecret"`
-	JWTExpireHours         int      `yaml:"jwt_expire_hours" json:"jwtExpireHours"`
-	LegacyAdminAuth        string   `yaml:"legacy_admin_auth" json:"legacyAdminAuth"`
-	LegacyCustomAuth       string   `yaml:"legacy_custom_auth" json:"legacyCustomAuth"`
-	LegacyAddrExpire       int      `yaml:"legacy_address_jwt_expire_hours" json:"legacyAddrExpire"`
-	DBPath                 string   `yaml:"db_path" json:"dbPath"`
-	DataDir                string   `yaml:"data_dir" json:"dataDir"`
-	CorsOrigins            []string `yaml:"cors_origins" json:"corsOrigins"`
-	DefaultAdminUser       string   `yaml:"default_admin_user" json:"defaultAdminUser"`
-	DefaultAdminPass       string   `yaml:"default_admin_pass" json:"defaultAdminPass"`
-	CleanupIntervalMinutes int      `yaml:"cleanup_interval_minutes" json:"cleanupIntervalMinutes"`
+	AppName                   string   `yaml:"app_name" json:"appName"`
+	HTTPAddr                  string   `yaml:"http_addr" json:"httpAddr"`
+	SMTPAddr                  string   `yaml:"smtp_addr" json:"smtpAddr"`
+	WebDir                    string   `yaml:"web_dir" json:"webDir"`
+	JWTSecret                 string   `yaml:"jwt_secret" json:"jwtSecret"`
+	JWTExpireHours            int      `yaml:"jwt_expire_hours" json:"jwtExpireHours"`
+	LegacyAdminAuth           string   `yaml:"legacy_admin_auth" json:"legacyAdminAuth"`
+	LegacyCustomAuth          string   `yaml:"legacy_custom_auth" json:"legacyCustomAuth"`
+	LegacyAddrExpire          int      `yaml:"legacy_address_jwt_expire_hours" json:"legacyAddrExpire"`
+	LegacyAllowSubdomainMatch bool     `yaml:"legacy_allow_subdomain_match" json:"legacyAllowSubdomainMatch"`
+	DBPath                    string   `yaml:"db_path" json:"dbPath"`
+	DataDir                   string   `yaml:"data_dir" json:"dataDir"`
+	CorsOrigins               []string `yaml:"cors_origins" json:"corsOrigins"`
+	DefaultAdminUser          string   `yaml:"default_admin_user" json:"defaultAdminUser"`
+	DefaultAdminPass          string   `yaml:"default_admin_pass" json:"defaultAdminPass"`
+	CleanupIntervalMinutes    int      `yaml:"cleanup_interval_minutes" json:"cleanupIntervalMinutes"`
 }
 
 func Default() Config {
 	return Config{
-		AppName:                "Temp Mail Service",
-		HTTPAddr:               ":8080",
-		SMTPAddr:               ":2525",
-		WebDir:                 "./web",
-		JWTSecret:              "change-me-in-production",
-		JWTExpireHours:         24,
-		LegacyAdminAuth:        "admin123456",
-		LegacyCustomAuth:       "",
-		LegacyAddrExpire:       24 * 30,
-		DBPath:                 "./data/tempmail.db",
-		DataDir:                "./data/messages",
-		CorsOrigins:            []string{"http://localhost:5173", "http://localhost:8080"},
-		DefaultAdminUser:       "admin",
-		DefaultAdminPass:       "admin123456",
-		CleanupIntervalMinutes: 10,
+		AppName:                   "Temp Mail Service",
+		HTTPAddr:                  ":8080",
+		SMTPAddr:                  ":2525",
+		WebDir:                    "./web",
+		JWTSecret:                 "change-me-in-production",
+		JWTExpireHours:            24,
+		LegacyAdminAuth:           "admin123456",
+		LegacyCustomAuth:          "",
+		LegacyAddrExpire:          24 * 30,
+		LegacyAllowSubdomainMatch: true,
+		DBPath:                    "./data/tempmail.db",
+		DataDir:                   "./data/messages",
+		CorsOrigins:               []string{"http://localhost:5173", "http://localhost:8080"},
+		DefaultAdminUser:          "admin",
+		DefaultAdminPass:          "admin123456",
+		CleanupIntervalMinutes:    10,
 	}
 }
 
