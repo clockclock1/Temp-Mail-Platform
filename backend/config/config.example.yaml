@@ -9,6 +9,10 @@ data_dir: "./data/messages"
 cors_origins:
   - "http://localhost:8080"
   - "http://localhost:5173"
+dns_resolvers:
+  - "1.1.1.1:53"
+  - "8.8.8.8:53"
+  - "9.9.9.9:53"
 default_admin_user: "admin"
 default_admin_pass: "change-this-admin-password"
 cleanup_interval_minutes: 10

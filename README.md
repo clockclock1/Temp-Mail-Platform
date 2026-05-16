@@ -50,6 +50,10 @@ data_dir: "./data/messages"
 cors_origins:
   - "http://localhost:8080"
   - "http://localhost:5173"
+dns_resolvers:
+  - "1.1.1.1:53"
+  - "8.8.8.8:53"
+  - "9.9.9.9:53"
 default_admin_user: "admin"
 default_admin_pass: "change-this-admin-password"
 cleanup_interval_minutes: 10
@@ -68,6 +72,7 @@ cleanup_interval_minutes: 10
 | `db_path` | SQLite 数据库文件 | `./data/tempmail.db` |
 | `data_dir` | 邮件原文 `eml` 存放目录 | `./data/messages` |
 | `cors_origins` | 允许的前端来源 | 按实际域名填写 |
+| `dns_resolvers` | MX 校验失败时使用的回退 DNS 服务器列表 | 建议保留 `1.1.1.1:53`、`8.8.8.8:53` |
 | `default_admin_user` | 首次初始化管理员用户名 | 生产环境请改掉 |
 | `default_admin_pass` | 首次初始化管理员密码 | 生产环境请改掉 |
 | `cleanup_interval_minutes` | 过期邮箱清理周期 | 默认 `10` |
@@ -83,6 +88,7 @@ cleanup_interval_minutes: 10
 
 - SMTP 收信对外必须能访问 `25` 端口
 - Docker Compose 默认把宿主机 `25` 映射到容器内 `2525`
+- 根域名新增时会先验证 MX；若容器内出现 `127.0.0.11` 解析失败，可通过 `dns_resolvers` 使用公共 DNS 回退
 - 数据库和邮件原文建议挂载到持久化目录
 - 首次部署后先修改默认管理员密码和 `jwt_secret`
 
@@ -145,7 +151,7 @@ docker compose up -d
 
 - `ghcr.io/clockclock1/tempmail:latest`
 - 每次正式 Release 发布后，GitHub Actions 会同步更新 `latest`
-- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.10`
+- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.11`
 
 默认挂载：
 
@@ -156,6 +162,7 @@ docker compose up -d
 
 - 首次启动时会自动创建 `./config/config.yaml`
 - `./data/backend` 和 `./config` 不需要提前手工建文件
+- MX 校验会先走容器默认 DNS，再自动回退到 `dns_resolvers` 中配置的解析器
 
 访问：
 
@@ -203,6 +210,18 @@ docker run -d --name tempmail \
 3. 开放 SMTP 入站（公网 25 到宿主机 25，再映射到容器 `2525`）
 4. 登录后在“域名管理”新增 `mail.example.com`
 5. 创建地址如 `demo@mail.example.com` 验证收信
+
+如果新增根域时看到类似：
+
+```text
+lookup mx for example.com: lookup example.com on 127.0.0.11:53: no such host
+```
+
+通常不是系统功能缺失，而是 Docker 当前 DNS 无法解析该域名。现在服务会自动继续尝试 `dns_resolvers` 中的公共 DNS；如果仍失败，再检查：
+
+1. 根域本身是否已生效
+2. `MX` 是否已正确指向你的收信主机
+3. 宿主机公网 `25` 端口是否已放通并映射到容器 `2525`
 
 ## API
 

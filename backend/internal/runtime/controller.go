@@ -9,6 +9,7 @@ import (
 	"tempmail/backend/internal/auth"
 	"tempmail/backend/internal/config"
 	"tempmail/backend/internal/service"
+	"tempmail/backend/internal/util"
 )
 
 type ApplyResult struct {
@@ -78,6 +79,7 @@ func (c *Controller) Apply(oldCfg, newCfg config.Config) (ApplyResult, error) {
 	c.userJWT.Update(newCfg.JWTSecret, newCfg.JWTExpireHours)
 	c.mailService.UpdateDataDir(newCfg.DataDir)
 	c.cleanupIntervalNS.Store(newCfg.CleanupInterval().Nanoseconds())
+	util.SetDNSResolvers(newCfg.DNSResolvers)
 
 	select {
 	case c.cleanupNowSignal <- struct{}{}:

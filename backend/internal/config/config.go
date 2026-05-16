@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,7 @@ type Config struct {
 	DBPath                 string   `yaml:"db_path" json:"dbPath"`
 	DataDir                string   `yaml:"data_dir" json:"dataDir"`
 	CorsOrigins            []string `yaml:"cors_origins" json:"corsOrigins"`
+	DNSResolvers           []string `yaml:"dns_resolvers" json:"dnsResolvers"`
 	DefaultAdminUser       string   `yaml:"default_admin_user" json:"defaultAdminUser"`
 	DefaultAdminPass       string   `yaml:"default_admin_pass" json:"defaultAdminPass"`
 	CleanupIntervalMinutes int      `yaml:"cleanup_interval_minutes" json:"cleanupIntervalMinutes"`
@@ -38,6 +40,7 @@ func Default() Config {
 		DBPath:                 "./data/tempmail.db",
 		DataDir:                "./data/messages",
 		CorsOrigins:            []string{"http://localhost:5173", "http://localhost:8080"},
+		DNSResolvers:           []string{"1.1.1.1:53", "8.8.8.8:53", "9.9.9.9:53"},
 		DefaultAdminUser:       "admin",
 		DefaultAdminPass:       "admin123456",
 		CleanupIntervalMinutes: 10,
@@ -55,6 +58,7 @@ func (c Config) CleanupInterval() time.Duration {
 func (c Config) Clone() Config {
 	out := c
 	out.CorsOrigins = append([]string(nil), c.CorsOrigins...)
+	out.DNSResolvers = append([]string(nil), c.DNSResolvers...)
 	return out
 }
 
@@ -115,6 +119,7 @@ func Normalize(cfg *Config) {
 		origins = []string{"*"}
 	}
 	cfg.CorsOrigins = origins
+	cfg.DNSResolvers = normalizeResolverList(cfg.DNSResolvers)
 
 	if cfg.CleanupIntervalMinutes <= 0 {
 		cfg.CleanupIntervalMinutes = 10
@@ -153,6 +158,33 @@ func Validate(cfg Config) error {
 		return errors.New("cleanup_interval_minutes must be > 0")
 	}
 	return nil
+}
+
+func normalizeResolverList(resolvers []string) []string {
+	if len(resolvers) == 0 {
+		return []string{"1.1.1.1:53", "8.8.8.8:53", "9.9.9.9:53"}
+	}
+
+	out := make([]string, 0, len(resolvers))
+	seen := map[string]struct{}{}
+	for _, resolver := range resolvers {
+		resolver = strings.TrimSpace(resolver)
+		if resolver == "" {
+			continue
+		}
+		if _, _, err := net.SplitHostPort(resolver); err != nil {
+			resolver = net.JoinHostPort(resolver, "53")
+		}
+		if _, ok := seen[resolver]; ok {
+			continue
+		}
+		seen[resolver] = struct{}{}
+		out = append(out, resolver)
+	}
+	if len(out) == 0 {
+		return []string{"1.1.1.1:53", "8.8.8.8:53", "9.9.9.9:53"}
+	}
+	return out
 }
 
 type Manager struct {

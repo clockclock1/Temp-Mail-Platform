@@ -61,6 +61,11 @@
         <textarea v-model="corsText" rows="4"></textarea>
       </label>
 
+      <label style="margin-top: 10px; display: block">
+        dns_resolvers（每行一个，留空则使用默认公共 DNS 回退）
+        <textarea v-model="dnsResolverText" rows="4"></textarea>
+      </label>
+
       <div class="row" style="margin-top: 10px">
         <button class="primary" :disabled="saving" @click="save">{{ saving ? '保存中...' : '保存并应用' }}</button>
         <button class="secondary" :disabled="saving" @click="reloadFromFile">从文件重载</button>
@@ -94,12 +99,14 @@ const form = reactive({
   dbPath: '',
   dataDir: '',
   corsOrigins: [],
+  dnsResolvers: [],
   defaultAdminUser: '',
   defaultAdminPass: '',
   cleanupIntervalMinutes: 10,
 })
 
 const corsText = ref('')
+const dnsResolverText = ref('')
 const warnings = ref([])
 const restartRequired = ref(false)
 const error = ref('')
@@ -117,9 +124,10 @@ async function load() {
 function assignForm(item) {
   Object.assign(form, item)
   corsText.value = (item.corsOrigins || []).join('\n')
+  dnsResolverText.value = (item.dnsResolvers || []).join('\n')
 }
 
-function parseCorsOrigins(input) {
+function parseLines(input) {
   return input
     .split(/[\n,]/g)
     .map((v) => v.trim())
@@ -134,7 +142,11 @@ async function save() {
   restartRequired.value = false
 
   try {
-    const payload = { ...form, corsOrigins: parseCorsOrigins(corsText.value) }
+    const payload = {
+      ...form,
+      corsOrigins: parseLines(corsText.value),
+      dnsResolvers: parseLines(dnsResolverText.value),
+    }
     const { data } = await SystemAPI.updateConfig(payload)
     assignForm(data.item)
     warnings.value = data.warnings || []
