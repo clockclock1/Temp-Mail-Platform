@@ -552,11 +552,7 @@ func (h *LegacyHandler) findMailboxByAddress(address string) (*models.Mailbox, e
 	if err != nil {
 		return nil, err
 	}
-	var mailbox models.Mailbox
-	if err := h.db.Joins("Domain").Where("mailboxes.local_part = ?", local).Where("Domain.name = ?", domain).Preload("Domain").First(&mailbox).Error; err != nil {
-		return nil, err
-	}
-	return &mailbox, nil
+	return h.mailSvc.FindMailboxByAddress(local, domain)
 }
 
 func (h *LegacyHandler) deleteMailboxMessages(mailboxID uint) (int64, error) {

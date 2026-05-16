@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"mime"
 	"mime/multipart"
 	stdmail "net/mail"
@@ -60,6 +61,10 @@ func (s *MailService) CreateMailbox(ownerID uint, localPart string, domainID uin
 		}
 		return nil, err
 	}
+	effectiveDomain, err := s.domainForNewMailbox(domain, ownerID)
+	if err != nil {
+		return nil, err
+	}
 
 	var expiresAt *time.Time
 	if ttlHours > 0 {
@@ -69,7 +74,7 @@ func (s *MailService) CreateMailbox(ownerID uint, localPart string, domainID uin
 
 	mailbox := models.Mailbox{
 		LocalPart:   localPart,
-		DomainID:    domain.ID,
+		DomainID:    effectiveDomain.ID,
 		OwnerID:     ownerID,
 		Description: description,
 		Enabled:     true,
@@ -93,6 +98,58 @@ func (s *MailService) CreateMailboxForDomainName(ownerID uint, localPart, domain
 		return nil, err
 	}
 	return s.CreateMailbox(ownerID, localPart, domain.ID, description, ttlHours)
+}
+
+func (s *MailService) domainForNewMailbox(root models.Domain, creatorID uint) (*models.Domain, error) {
+	targetDepth := util.NormalizeDomainLevel(root.Level)
+	if root.RandomLevel {
+		minLevel, maxLevel := util.NormalizeRandomDomainLevelRange(root.LevelMin, root.LevelMax)
+		targetDepth = randomDomainDepth(minLevel, maxLevel)
+	}
+
+	name := generatedDomainName(root.Name, targetDepth)
+	if name == root.Name {
+		return &root, nil
+	}
+
+	var domain models.Domain
+	err := s.db.Where("name = ?", name).First(&domain).Error
+	if err == nil {
+		if !domain.Enabled {
+			return nil, fmt.Errorf("domain disabled")
+		}
+		return &domain, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	domain = models.Domain{
+		Name:        name,
+		Enabled:     true,
+		Level:       root.Level,
+		RandomLevel: root.RandomLevel,
+		LevelMin:    root.LevelMin,
+		LevelMax:    root.LevelMax,
+		MXVerified:  root.MXVerified,
+		MXRecords:   root.MXRecords,
+		MXCheckedAt: root.MXCheckedAt,
+		CreatedBy:   creatorID,
+	}
+	if err := s.db.Create(&domain).Error; err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			var existing models.Domain
+			if getErr := s.db.Where("name = ?", name).First(&existing).Error; getErr == nil {
+				if !existing.Enabled {
+					return nil, fmt.Errorf("domain disabled")
+				}
+				return &existing, nil
+			}
+		}
+		return nil, err
+	}
+
+	return &domain, nil
 }
 
 func (s *MailService) ResolveOrCreateSubdomain(domainName string, creatorID uint, allowSubdomainMatch bool) (*models.Domain, error) {
@@ -158,6 +215,35 @@ func (s *MailService) FindMailboxByAddress(localPart, domainName string) (*model
 	localPart = strings.ToLower(strings.TrimSpace(localPart))
 	domainName = strings.ToLower(strings.TrimSpace(domainName))
 
+	mailbox, err := s.findExactMailbox(localPart, domainName)
+	if err == nil {
+		return mailbox, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	var domains []models.Domain
+	if err := s.db.Where("enabled = ?", true).Order("LENGTH(name) desc").Find(&domains).Error; err != nil {
+		return nil, err
+	}
+	for _, domain := range domains {
+		if domain.Name == domainName || !util.IsDomainOrSubdomain(domainName, domain.Name) {
+			continue
+		}
+		mailbox, err := s.findExactMailbox(localPart, domain.Name)
+		if err == nil {
+			return mailbox, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
+
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (s *MailService) findExactMailbox(localPart, domainName string) (*models.Mailbox, error) {
 	var mailbox models.Mailbox
 	err := s.db.Joins("Domain").
 		Where("mailboxes.local_part = ?", localPart).
@@ -173,6 +259,28 @@ func (s *MailService) FindMailboxByAddress(localPart, domainName string) (*model
 		return nil, gorm.ErrRecordNotFound
 	}
 	return &mailbox, nil
+}
+
+func generatedDomainName(rootName string, targetDepth int) string {
+	rootName = strings.ToLower(strings.TrimSpace(rootName))
+	rootDepth := util.DomainDepth(rootName)
+	if rootDepth <= 0 || targetDepth <= rootDepth {
+		return rootName
+	}
+
+	labels := make([]string, 0, targetDepth-rootDepth)
+	for i := 0; i < targetDepth-rootDepth; i++ {
+		labels = append(labels, util.RandomAlphaNum(8))
+	}
+
+	return strings.Join(append(labels, rootName), ".")
+}
+
+func randomDomainDepth(minLevel, maxLevel int) int {
+	if minLevel >= maxLevel {
+		return minLevel
+	}
+	return rand.New(rand.NewSource(time.Now().UnixNano())).Intn(maxLevel-minLevel+1) + minLevel
 }
 
 func (s *MailService) StoreIncomingMessage(mailbox *models.Mailbox, envelopeTo, fallbackFrom string, raw []byte) (*models.Message, error) {

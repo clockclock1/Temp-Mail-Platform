@@ -111,14 +111,26 @@ func (s *session) Data(r io.Reader) error {
 		return fmt.Errorf("read email data: %w", err)
 	}
 
+	stored := 0
+	var lastErr error
 	for _, t := range s.targets {
 		mailbox, err := s.mailService.FindMailboxByAddress(t.local, t.domain)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		if _, err := s.mailService.StoreIncomingMessage(mailbox, t.envelopeTo, s.from, raw); err != nil {
+			lastErr = err
 			log.Printf("store message failed rcpt=%s err=%v", t.envelopeTo, err)
+			continue
 		}
+		stored++
+	}
+	if stored == 0 {
+		if lastErr != nil {
+			return fmt.Errorf("store message: %w", lastErr)
+		}
+		return fmt.Errorf("store message failed")
 	}
 	return nil
 }
