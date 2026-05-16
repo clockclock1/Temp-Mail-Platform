@@ -24,14 +24,75 @@
 ./tempmail -config ./config.yaml
 ```
 
-- 示例配置模板：`backend/config/config.example.yaml`
-- Docker 默认配置路径：`/app/config/config.yaml`
+- 示例模板：`backend/config/config.example.yaml`
+- Docker 默认路径：`/app/config/config.yaml`
+- 前端配置中心：管理员登录后访问 `/config`
 
-前端配置中心可在管理员登录后访问：`/config`
+### 1) 配置文件怎么放
 
-- 修改后会写回配置文件
-- 运行时可热生效项会立即生效（如 JWT、CORS、旧接口鉴权、清理周期、数据目录）
-- 若改了监听地址或数据库路径，会返回 `restartRequired=true`
+首次启动时，程序会按 `-config` 指定路径读取配置。
+
+- 本地开发通常放在 `backend/../config/config.yaml`
+- 二进制部署通常和可执行文件放在同级目录
+- Docker Compose 默认挂载 `./config:/app/config`
+
+### 2) 完整配置示例
+
+```yaml
+app_name: Temp Mail Service
+http_addr: ":8080"
+smtp_addr: ":2525"
+web_dir: "./web"
+jwt_secret: "change-me-in-production"
+jwt_expire_hours: 24
+legacy_admin_auth: "change-this-admin-auth"
+legacy_custom_auth: ""
+legacy_address_jwt_expire_hours: 720
+legacy_allow_subdomain_match: true
+db_path: "./data/tempmail.db"
+data_dir: "./data/messages"
+cors_origins:
+  - "http://localhost:8080"
+  - "http://localhost:5173"
+default_admin_user: "admin"
+default_admin_pass: "change-this-admin-password"
+cleanup_interval_minutes: 10
+```
+
+### 3) 每个字段是什么意思
+
+| 字段 | 作用 | 默认/建议 |
+| --- | --- | --- |
+| `app_name` | 后端服务名称 | 任意，展示用 |
+| `http_addr` | Web/API 监听地址 | `:8080` |
+| `smtp_addr` | SMTP 监听地址 | `:2525` |
+| `web_dir` | 前端静态资源目录 | Docker 用 `./web` 或 `/app/web` |
+| `jwt_secret` | 新版登录 Token 密钥 | 生产环境务必修改 |
+| `jwt_expire_hours` | 新版登录有效期 | 默认 `24` |
+| `legacy_admin_auth` | 旧版管理员鉴权串 | 兼容旧接口时需要 |
+| `legacy_custom_auth` | 旧版自定义鉴权串 | 留空表示关闭 |
+| `legacy_address_jwt_expire_hours` | 旧版邮箱 Token 有效期 | 默认 `720` |
+| `legacy_allow_subdomain_match` | 是否允许子域名自动匹配 | `true`，支持多级域名 |
+| `db_path` | SQLite 数据库文件 | `./data/tempmail.db` |
+| `data_dir` | 邮件原文 `eml` 存放目录 | `./data/messages` |
+| `cors_origins` | 允许的前端来源 | 按实际域名填写 |
+| `default_admin_user` | 首次初始化管理员用户名 | 生产环境请改掉 |
+| `default_admin_pass` | 首次初始化管理员密码 | 生产环境请改掉 |
+| `cleanup_interval_minutes` | 过期邮箱清理周期 | 默认 `10` |
+
+### 4) 改完会发生什么
+
+- 修改 `cors_origins`、`jwt_secret`、`legacy_*`、`cleanup_interval_minutes`、`data_dir` 后可热生效
+- 修改 `http_addr`、`smtp_addr`、`db_path`、`web_dir` 这类路径或监听项，通常需要重启服务
+- 前端配置中心会自动写回同一份 `config.yaml`
+- 配置保存后如果提示 `restartRequired=true`，说明需要重启进程才能完全生效
+
+### 5) 常见部署建议
+
+- SMTP 收信对外必须能访问 `25` 端口
+- Docker Compose 默认把宿主机 `25` 映射到容器内 `2525`
+- 数据库和邮件原文建议挂载到持久化目录
+- 首次部署后先修改默认管理员密码和 `jwt_secret`
 
 ## 发布产物
 
