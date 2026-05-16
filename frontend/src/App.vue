@@ -79,8 +79,8 @@ const currentTime = ref('')
 let timer = null
 
 const navItems = computed(() => [
-  { to: '/', label: '收件台', desc: '创建地址与查看邮件', icon: '收' },
-  ...(auth.isAdmin.value ? [{ to: '/domains', label: '域名管理', desc: '域名池与层级推送', icon: '域' }] : []),
+  { to: '/', label: '收件台', desc: '创建邮箱与查看邮件', icon: '收' },
+  ...(auth.isAdmin.value ? [{ to: '/domains', label: '域名管理', desc: '固定根域与通配收信', icon: '域' }] : []),
   ...(auth.can('user:manage') ? [{ to: '/users', label: '用户管理', desc: '账号与状态控制', icon: '用' }] : []),
   ...(auth.can('role:manage') ? [{ to: '/roles', label: '角色权限', desc: '权限矩阵编排', icon: '权' }] : []),
   ...(auth.can('config:manage') ? [{ to: '/config', label: '系统配置', desc: '运行参数与热更新', icon: '配' }] : []),

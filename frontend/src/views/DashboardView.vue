@@ -4,10 +4,12 @@
       <div class="hero-copy">
         <span class="eyebrow">Inbox Studio</span>
         <h1 class="hero-title">收件台</h1>
-        <p class="hero-copy-text">在一个界面里完成创建、筛选、预览和清理，所有收件流动都更直观。</p>
+        <p class="hero-copy-text">
+          新建邮箱后会固定生成一个主地址，同时支持同用户名在任意子域上的来信自动回落到这个邮箱。
+        </p>
         <div class="hero-pills">
-          <span class="pill">实时列表</span>
-          <span class="pill">快速复制</span>
+          <span class="pill">固定主地址</span>
+          <span class="pill">泛子域别名</span>
           <span class="pill">原文预览</span>
         </div>
       </div>
@@ -16,19 +18,24 @@
         <div class="panel-head">
           <div>
             <strong>新建邮箱</strong>
-            <p class="meta">几秒内创建一个可收信地址。</p>
+            <p class="meta">创建后可直接使用主地址收信，也可接受同用户名的泛子域来信。</p>
           </div>
           <span class="badge ok">Live</span>
         </div>
         <div class="grid" style="margin-top: 14px">
           <input v-model="createForm.localPart" placeholder="邮箱前缀，例如 qa-user" />
           <select v-model.number="createForm.domainId">
-            <option :value="0">选择域名</option>
-            <option v-for="d in domains" :key="d.id" :value="d.id">{{ d.name }} · {{ levelLabel(d) }}</option>
+            <option :value="0">选择根域名</option>
+            <option v-for="d in domains" :key="d.id" :value="d.id">{{ d.name }}</option>
           </select>
           <input v-model.number="createForm.ttlHours" type="number" min="1" max="720" />
-          <button class="primary" :disabled="creating" @click="createMailbox">{{ creating ? '创建中...' : '创建邮箱' }}</button>
+          <button class="primary" :disabled="creating" @click="createMailbox">
+            {{ creating ? '创建中...' : '创建邮箱' }}
+          </button>
         </div>
+        <p class="meta" style="margin-top: 10px">
+          示例：主地址 <code>alice@example.com</code>，泛子域别名 <code>alice@*.example.com</code>。
+        </p>
         <p v-if="error" class="error" style="margin-top: 10px">{{ error }}</p>
       </div>
     </section>
@@ -58,10 +65,12 @@
               <strong>{{ m.localPart }}</strong>
               <span class="badge" :class="m.enabled ? 'ok' : 'off'">{{ m.enabled ? '启用' : '禁用' }}</span>
             </div>
-            <div class="meta" style="margin-top: 4px">@{{ m.domain?.name }} · {{ levelLabel(m.domain) }}</div>
+            <div class="meta" style="margin-top: 4px">{{ m.address }}</div>
+            <div class="meta" style="margin-top: 2px">泛子域别名：{{ m.wildcardAddress }}</div>
             <div class="meta" style="margin-top: 2px">{{ formatRemaining(m.remainingSeconds) }}</div>
             <div class="row" style="margin-top: 10px">
-              <button class="ghost" @click.stop="copy(m.address)">复制</button>
+              <button class="ghost" @click.stop="copy(m.address)">复制主地址</button>
+              <button class="ghost" @click.stop="copy(m.wildcardAddress)">复制泛子域格式</button>
               <button class="danger" @click.stop="removeMailbox(m.id)">删除</button>
             </div>
           </article>
@@ -73,7 +82,7 @@
       <div class="card list-panel">
         <div class="panel-head">
           <strong>邮件列表</strong>
-          <input v-model="mailFilter" placeholder="按主题/发件人过滤" style="width: 190px" />
+          <input v-model="mailFilter" placeholder="按主题 / 发件人过滤" style="width: 190px" />
         </div>
 
         <div class="item-list">
@@ -145,7 +154,7 @@ const createForm = reactive({
 
 const statItems = computed(() => [
   { label: '用户总数', value: stats.value.users },
-  { label: '域名总数', value: stats.value.domains },
+  { label: '根域总数', value: stats.value.domains },
   { label: '邮箱总数', value: stats.value.mailboxes },
   { label: '邮件总数', value: stats.value.messages },
   { label: '24 小时新增邮件', value: stats.value.messagesLast24Hours },
@@ -154,9 +163,7 @@ const statItems = computed(() => [
 const filteredMessages = computed(() => {
   const kw = mailFilter.value.trim().toLowerCase()
   if (!kw) return messages.value
-  return messages.value.filter((m) =>
-    [m.subject, m.from].some((v) => String(v || '').toLowerCase().includes(kw)),
-  )
+  return messages.value.filter((m) => [m.subject, m.from].some((v) => String(v || '').toLowerCase().includes(kw)))
 })
 
 onMounted(async () => {
@@ -190,7 +197,7 @@ async function loadStats() {
 async function createMailbox() {
   error.value = ''
   if (!createForm.localPart || !createForm.domainId) {
-    error.value = '请输入邮箱前缀并选择域名'
+    error.value = '请输入邮箱前缀并选择根域名。'
     return
   }
 
@@ -200,7 +207,7 @@ async function createMailbox() {
     createForm.localPart = ''
     await Promise.all([loadMailboxes(), loadStats()])
   } catch (e) {
-    error.value = e?.response?.data?.error || '创建失败'
+    error.value = e?.response?.data?.error || '创建失败。'
   } finally {
     creating.value = false
   }
@@ -231,7 +238,7 @@ async function removeMailbox(id) {
 }
 
 async function removeMessage(id) {
-  if (!confirm('确定删除该邮件吗？')) return
+  if (!confirm('确定删除这封邮件吗？')) return
   await MessageAPI.remove(id)
   messages.value = messages.value.filter((m) => m.id !== id)
   if (activeMessage.value?.id === id) activeMessage.value = null
@@ -249,6 +256,7 @@ async function downloadRaw(id) {
 }
 
 async function copy(text) {
+  if (!text) return
   await navigator.clipboard.writeText(text)
 }
 
@@ -265,24 +273,5 @@ function shortTime(v) {
 
 function fullTime(v) {
   return new Date(v).toLocaleString()
-}
-
-function levelLabel(domain) {
-  if (!domain) return '-'
-  if (domain.randomLevel) {
-    const min = domain.levelMin || 1
-    const max = domain.levelMax || 7
-    return `${min}-${max}级随机`
-  }
-  if (domain.level) return `${domain.level}级`
-  return `${countLabels(domain.name)}级`
-}
-
-function countLabels(name) {
-  const count = String(name || '')
-    .split('.')
-    .map((v) => v.trim())
-    .filter(Boolean).length
-  return count > 0 ? count : 2
 }
 </script>

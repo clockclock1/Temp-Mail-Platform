@@ -5,46 +5,38 @@
         <span class="eyebrow">Domain Fabric</span>
         <h1 class="hero-title">域名管理</h1>
         <p class="hero-copy-text">
-          根域名添加前会先校验 MX 记录，校验通过后才会写入。开启多级域名策略后，
-          系统会按设定层级自动生成子域，接口调用行为与兼容模式保持一致。
+          这里只维护固定根域名。新邮箱会直接使用这个根域，任意子域名地址是否能收信，交给 DNS 的通配记录和 MX
+          入口来负责。
         </p>
         <div class="hero-pills">
-          <span class="pill">根域白名单</span>
-          <span class="pill">1-10 级层级</span>
+          <span class="pill">固定接收域</span>
           <span class="pill">MX 校验</span>
-          <span class="pill">兼容旧接口</span>
+          <span class="pill">泛子域路由</span>
         </div>
       </div>
 
       <div class="hero-note">
-        <strong>使用建议</strong>
+        <strong>推荐模式</strong>
         <p>
-          第一次使用请先填写发信域名池并点击推送。后续新增根域名时，只需要重新推送一次，
-          已有规则会持续生效。
+          先添加一个真实可收信的根域名，例如 <code>example.com</code>。系统里创建出的邮箱会固定为
+          <code>user@example.com</code>，同时也会接受类似 <code>user@foo.example.com</code>、
+          <code>user@bar.foo.example.com</code> 的泛子域来信。
         </p>
       </div>
     </section>
 
     <section class="stat-grid stat-grid--hero">
       <div class="stat-item">
-        <div class="meta">域名总数</div>
+        <div class="meta">根域总数</div>
         <div class="stat-value">{{ domainStats.total }}</div>
       </div>
       <div class="stat-item">
-        <div class="meta">启用中</div>
+        <div class="meta">已启用</div>
         <div class="stat-value">{{ domainStats.enabled }}</div>
       </div>
       <div class="stat-item">
         <div class="meta">MX 已验证</div>
         <div class="stat-value">{{ domainStats.mxVerified }}</div>
-      </div>
-      <div class="stat-item">
-        <div class="meta">随机层级</div>
-        <div class="stat-value">{{ domainStats.randomLevel }}</div>
-      </div>
-      <div class="stat-item">
-        <div class="meta">固定层级</div>
-        <div class="stat-value">{{ domainStats.fixedLevel }}</div>
       </div>
     </section>
 
@@ -52,8 +44,8 @@
       <div class="card card-accent">
         <div class="panel-head">
           <div>
-            <strong>根域名池推送</strong>
-            <p class="meta">支持固定层级和随机层级。推送时会逐个验证 MX，验证失败会直接阻止写入。</p>
+            <strong>批量推送根域名</strong>
+            <p class="meta">每个根域都会先验证 MX，验证通过才会写入。</p>
           </div>
           <span class="badge ok">Pool Push</span>
         </div>
@@ -64,40 +56,9 @@
             <textarea
               v-model="poolText"
               rows="6"
-              placeholder="example.com&#10;mail.example.net&#10;demo.example.org"
+              placeholder="example.com&#10;example.net&#10;example.org"
             ></textarea>
           </label>
-
-          <div class="grid grid-3">
-            <label>
-              层级策略
-              <select v-model="poolForm.randomLevel">
-                <option :value="false">固定层级</option>
-                <option :value="true">1-7 级随机</option>
-              </select>
-            </label>
-            <label>
-              默认层级
-              <select v-model.number="poolForm.level" :disabled="poolForm.randomLevel">
-                <option v-for="n in 10" :key="n" :value="n">{{ n }} 级</option>
-              </select>
-            </label>
-            <label>
-              当前模式
-              <input :value="strategyText(poolForm)" disabled />
-            </label>
-          </div>
-
-          <div class="row wrap" v-if="poolForm.randomLevel">
-            <label class="compact-field">
-              最小层级
-              <input v-model.number="poolForm.levelMin" type="number" min="1" max="7" />
-            </label>
-            <label class="compact-field">
-              最大层级
-              <input v-model.number="poolForm.levelMax" type="number" min="1" max="7" />
-            </label>
-          </div>
 
           <div class="row wrap">
             <button class="primary" :disabled="pushing" @click="pushPool">
@@ -107,6 +68,9 @@
           </div>
 
           <p v-if="pushMessage" class="success">{{ pushMessage }}</p>
+          <p class="meta">
+            推送成功后，新建邮箱会固定绑定到对应根域；如果你同时配置了通配 DNS，任意子域地址也会被路由到同一个邮箱。
+          </p>
         </div>
       </div>
 
@@ -114,7 +78,7 @@
         <div class="panel-head">
           <div>
             <strong>手动添加根域</strong>
-            <p class="meta">新增前会验证 MX 记录。失败时不会写入列表，避免无效根域进入生产配置。</p>
+            <p class="meta">新增前会即时验证 MX 记录，失败时不会写入。</p>
           </div>
           <button class="ghost" @click="load">刷新</button>
         </div>
@@ -133,34 +97,14 @@
           </label>
         </div>
 
-        <div class="grid grid-3" style="margin-top: 12px">
+        <div class="grid grid-2" style="margin-top: 12px">
           <label>
-            层级策略
-            <select v-model="form.randomLevel">
-              <option :value="false">固定层级</option>
-              <option :value="true">1-7 级随机</option>
-            </select>
-          </label>
-          <label>
-            默认层级
-            <select v-model.number="form.level" :disabled="form.randomLevel">
-              <option v-for="n in 10" :key="n" :value="n">{{ n }} 级</option>
-            </select>
+            接收模式
+            <input value="固定根域 + 泛子域路由" disabled />
           </label>
           <label>
             快速过滤
             <input v-model.trim="keyword" placeholder="输入域名关键字" />
-          </label>
-        </div>
-
-        <div class="row wrap" style="margin-top: 12px" v-if="form.randomLevel">
-          <label class="compact-field">
-            最小层级
-            <input v-model.number="form.levelMin" type="number" min="1" max="7" />
-          </label>
-          <label class="compact-field">
-            最大层级
-            <input v-model.number="form.levelMax" type="number" min="1" max="7" />
           </label>
         </div>
 
@@ -175,15 +119,16 @@
     <section class="guide-grid">
       <article class="card guide-card">
         <div class="panel-head">
-          <strong>MX 绑定指引</strong>
+          <strong>DNS / MX 绑定指引</strong>
           <span class="badge ok">必做</span>
         </div>
         <ol class="dns-steps">
-          <li>先准备一个可被公网访问的收信主机，例如 <code>mail.example.com</code>，并让它指向当前服务器公网 IP。</li>
-          <li>在根域名处添加 <code>MX</code> 记录，让 <code>@</code> 指向你的收信主机，优先级建议为 <code>10</code>。</li>
-          <li>如果要启用 1-10 级多级子域邮箱，再补充一个通配子域解析 <code>*</code> 指向同一入口。</li>
-          <li>确认宿主机已放行并映射 SMTP 端口，外部邮件服务器需要能连到 <code>25</code> 端口。</li>
-          <li>等待 DNS 生效后，再回到本页面新增根域；系统会立即执行 MX 校验。</li>
+          <li>先准备一个收信主机，例如 <code>mail.example.com</code>，并让它解析到你的服务器公网 IP。</li>
+          <li>添加根域 MX：<code>@ MX 10 mail.example.com</code>。</li>
+          <li>添加通配 MX：<code>* MX 10 mail.example.com</code>，让任意子域邮箱都走同一个 SMTP 入口。</li>
+          <li>建议再添加通配解析：<code>* A 服务器公网 IP</code>，方便子域探测和部分隐式投递场景。</li>
+          <li>确认宿主机公网 <code>25</code> 端口已放行，并映射到容器内的 <code>2525</code>。</li>
+          <li>等待 DNS 生效后，再回到本页面新增根域；系统会立即校验根域 MX。</li>
         </ol>
       </article>
 
@@ -193,16 +138,16 @@
           <span class="badge">DNS</span>
         </div>
         <div class="guide-kv">
-          <div><span>主机记录</span><code>@</code></div>
-          <div><span>记录类型</span><code>MX</code></div>
-          <div><span>记录值</span><code>mail.example.com</code></div>
-          <div><span>优先级</span><code>10</code></div>
-          <div><span>泛解析</span><code>* -> 同一收信入口</code></div>
-          <div><span>检测方式</span><code>新增 / 推送时自动验证</code></div>
+          <div><span>mail 主机</span><code>mail A 服务器公网 IP</code></div>
+          <div><span>根域 MX</span><code>@ MX 10 mail.example.com</code></div>
+          <div><span>通配 MX</span><code>* MX 10 mail.example.com</code></div>
+          <div><span>通配解析</span><code>* A 服务器公网 IP</code></div>
+          <div><span>容器端口</span><code>25 -> 2525</code></div>
+          <div><span>系统收件</span><code>user@example.com / user@any.example.com</code></div>
         </div>
         <p class="meta" style="margin-top: 12px">
-          如果新增时提示 <code>lookup ... no such host</code>，通常表示域名本身未解析、MX 记录未生效，
-          或容器无法通过当前 DNS 解析到该根域。
+          如果新增时提示 <code>lookup ... no such host</code>，通常表示根域本身还没有生效，或者容器当前 DNS 无法解析该域名。
+          现在系统会自动尝试备用 DNS，但根域和 MX 记录本身仍然必须真实存在。
         </p>
       </article>
     </section>
@@ -211,7 +156,7 @@
       <div class="panel-head">
         <div>
           <strong>根域名列表</strong>
-          <p class="meta">当前共 {{ filteredItems.length }} 条匹配记录，可在此查看验证状态、层级策略和 MX 明细。</p>
+          <p class="meta">当前共 {{ filteredItems.length }} 条匹配记录，可查看验证状态与 MX 明细。</p>
         </div>
         <button class="ghost" @click="load">刷新列表</button>
       </div>
@@ -222,7 +167,7 @@
             <tr>
               <th>ID</th>
               <th>根域名</th>
-              <th>层级策略</th>
+              <th>接收模式</th>
               <th>MX 验证</th>
               <th>MX 记录</th>
               <th>状态</th>
@@ -236,7 +181,7 @@
                 <div class="table-domain-name">{{ item.name }}</div>
                 <div class="meta" v-if="item.mxCheckedAt">最近检测：{{ shortTime(item.mxCheckedAt) }}</div>
               </td>
-              <td>{{ levelLabel(item) }}</td>
+              <td>固定根域 + 泛子域路由</td>
               <td>
                 <span class="badge" :class="item.mxVerified ? 'ok' : 'off'">
                   {{ item.mxVerified ? '已验证' : '未验证' }}
@@ -284,20 +229,10 @@ const pushMessage = ref('')
 const pushing = ref(false)
 
 const poolText = ref('')
-const poolForm = reactive({
-  randomLevel: false,
-  level: 2,
-  levelMin: 1,
-  levelMax: 7,
-})
 
 const form = reactive({
   name: '',
   enabled: true,
-  randomLevel: false,
-  level: 2,
-  levelMin: 1,
-  levelMax: 7,
 })
 
 const filteredItems = computed(() => {
@@ -310,8 +245,6 @@ const domainStats = computed(() => ({
   total: items.value.length,
   enabled: items.value.filter((item) => item.enabled).length,
   mxVerified: items.value.filter((item) => item.mxVerified).length,
-  randomLevel: items.value.filter((item) => item.randomLevel).length,
-  fixedLevel: items.value.filter((item) => !item.randomLevel).length,
 }))
 
 onMounted(load)
@@ -325,20 +258,6 @@ async function load() {
   } catch (e) {
     error.value = e?.response?.data?.error || '加载域名列表失败。'
   }
-}
-
-function normalizeRange(model) {
-  const next = { ...model }
-  if (next.randomLevel) {
-    next.levelMin = clamp(next.levelMin, 1, 7)
-    next.levelMax = clamp(next.levelMax, 1, 7)
-    if (next.levelMin > next.levelMax) {
-      throw new Error('随机层级的最小值不能大于最大值。')
-    }
-  } else {
-    next.level = clamp(next.level, 1, 10)
-  }
-  return next
 }
 
 async function pushPool() {
@@ -355,23 +274,12 @@ async function pushPool() {
     return
   }
 
-  let strategy
-  try {
-    strategy = normalizeRange(poolForm)
-  } catch (e) {
-    error.value = e.message
-    return
-  }
-
   pushing.value = true
   try {
     const { data } = await DomainAPI.push({
       names,
       enabled: true,
-      randomLevel: strategy.randomLevel,
-      level: strategy.level,
-      levelMin: strategy.levelMin,
-      levelMax: strategy.levelMax,
+      randomLevel: false,
     })
     pushMessage.value = `推送完成：新增 ${data.created || 0} 个根域，更新 ${data.updated || 0} 个根域。`
     await load()
@@ -389,22 +297,11 @@ async function create() {
     return
   }
 
-  let strategy
-  try {
-    strategy = normalizeRange(form)
-  } catch (e) {
-    error.value = e.message
-    return
-  }
-
   try {
     await DomainAPI.create({
       name: form.name,
       enabled: form.enabled,
-      randomLevel: strategy.randomLevel,
-      level: strategy.level,
-      levelMin: strategy.levelMin,
-      levelMax: strategy.levelMax,
+      randomLevel: false,
     })
     resetForm()
     await load()
@@ -419,14 +316,12 @@ async function toggle(item) {
     await DomainAPI.update(item.id, {
       name: item.name,
       enabled: !item.enabled,
-      randomLevel: item.randomLevel,
+      randomLevel: false,
       level: item.level,
-      levelMin: item.levelMin,
-      levelMax: item.levelMax,
     })
     await load()
   } catch (e) {
-    error.value = e?.response?.data?.error || '更新域名状态失败。'
+    error.value = e?.response?.data?.error || '更新根域状态失败。'
   }
 }
 
@@ -437,10 +332,8 @@ async function recheckMx(item) {
     await DomainAPI.push({
       names: [item.name],
       enabled: item.enabled,
-      randomLevel: item.randomLevel,
+      randomLevel: false,
       level: item.level,
-      levelMin: item.levelMin,
-      levelMax: item.levelMax,
     })
     pushMessage.value = `已重新验证 ${item.name} 的 MX 记录。`
     await load()
@@ -463,21 +356,6 @@ async function remove(id) {
 function resetForm() {
   form.name = ''
   form.enabled = true
-  form.randomLevel = false
-  form.level = 2
-  form.levelMin = 1
-  form.levelMax = 7
-}
-
-function levelLabel(item) {
-  if (item.randomLevel) {
-    return `${item.levelMin || 1}-${item.levelMax || 7} 级随机`
-  }
-  return `${item.level || 2} 级固定`
-}
-
-function strategyText(model) {
-  return model.randomLevel ? `${model.levelMin}-${model.levelMax} 级随机` : `${model.level} 级固定`
 }
 
 function mxList(records) {
@@ -489,11 +367,5 @@ function mxList(records) {
 
 function shortTime(value) {
   return new Date(value).toLocaleString('zh-CN')
-}
-
-function clamp(value, min, max) {
-  const num = Number(value)
-  if (Number.isNaN(num)) return min
-  return Math.min(max, Math.max(min, num))
 }
 </script>

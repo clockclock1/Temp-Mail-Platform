@@ -2,23 +2,20 @@ package service
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"tempmail/backend/internal/db"
 	"tempmail/backend/internal/models"
-	"tempmail/backend/internal/util"
 
 	"gorm.io/gorm"
 )
 
-func TestCreateMailboxGeneratesConfiguredSubdomain(t *testing.T) {
+func TestCreateMailboxUsesSelectedRootDomain(t *testing.T) {
 	svc, database := newTestMailService(t)
 	ownerID := createTestUser(t, database)
 	root := createTestDomain(t, database, models.Domain{
 		Name:      "example.com",
 		Enabled:   true,
-		Level:     4,
 		CreatedBy: ownerID,
 	})
 
@@ -27,14 +24,8 @@ func TestCreateMailboxGeneratesConfiguredSubdomain(t *testing.T) {
 		t.Fatalf("CreateMailbox returned error: %v", err)
 	}
 
-	if mailbox.Domain.Name == root.Name {
-		t.Fatalf("expected generated subdomain, got root domain %q", mailbox.Domain.Name)
-	}
-	if util.DomainDepth(mailbox.Domain.Name) != 4 {
-		t.Fatalf("expected depth 4, got %d for %q", util.DomainDepth(mailbox.Domain.Name), mailbox.Domain.Name)
-	}
-	if !strings.HasSuffix(mailbox.Domain.Name, "."+root.Name) {
-		t.Fatalf("expected %q to end with %q", mailbox.Domain.Name, root.Name)
+	if mailbox.Domain.Name != root.Name {
+		t.Fatalf("expected root domain %q, got %q", root.Name, mailbox.Domain.Name)
 	}
 }
 

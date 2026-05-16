@@ -2,7 +2,7 @@
 
 一个可自托管的临时邮箱系统：
 
-- 子域名绑定 MX 后即可收信
+- 固定根域邮箱 + 泛子域收信
 - 必须登录后才能创建邮箱
 - 完整用户/角色/权限管理（RBAC）
 - 前端可视化配置中心（管理员）
@@ -151,7 +151,7 @@ docker compose up -d
 
 - `ghcr.io/clockclock1/tempmail:latest`
 - 每次正式 Release 发布后，GitHub Actions 会同步更新 `latest`
-- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.11`
+- 如需固定到某个 Release 版本，可先设置环境变量：`TEMPMAIL_IMAGE=ghcr.io/clockclock1/tempmail:v1.0.12`
 
 默认挂载：
 
@@ -201,15 +201,37 @@ docker run -d --name tempmail \
 - 若 `25` 端口被占用，可设置 `TEMPMAIL_SMTP_PORT=2525` 等值覆盖宿主机端口
 - 若云平台不直接开放 SMTP 25，建议增加一层 SMTP 网关/VPS 转发到本服务 `2525`
 
-## MX 配置示例
+## 固定根域 + 泛子域收信
 
-假设收件域名为 `mail.example.com`：
+当前版本的实际收信模式是：
 
-1. `A` 记录：`mail.example.com -> 服务器公网 IP`
-2. `MX` 记录：`mail.example.com -> mail.example.com`
-3. 开放 SMTP 入站（公网 25 到宿主机 25，再映射到容器 `2525`）
-4. 登录后在“域名管理”新增 `mail.example.com`
-5. 创建地址如 `demo@mail.example.com` 验证收信
+1. 在系统里只维护固定根域，例如 `example.com`
+2. 创建邮箱后，主地址固定为 `alice@example.com`
+3. 如果 DNS 已配置通配收信，系统也会接受：
+   `alice@foo.example.com`
+4. 同样也接受更深层的子域：
+   `alice@bar.foo.example.com`
+
+也就是说，系统内的“邮箱归属域”固定是根域；泛子域能力由 DNS 和 SMTP 投递规则负责，后端只做统一路由匹配。
+
+### 推荐 DNS 记录
+
+假设你的固定根域是 `example.com`，收信主机是 `mail.example.com`：
+
+1. `mail A 服务器公网 IP`
+2. `@ MX 10 mail.example.com`
+3. `* MX 10 mail.example.com`
+4. `* A 服务器公网 IP`
+5. 开放 SMTP 入站（公网 `25` 到宿主机 `25`，再映射到容器 `2525`）
+
+推荐流程：
+
+1. 先确认 `mail.example.com` 能解析到公网 IP
+2. 再确认根域 `example.com` 的 MX 已生效
+3. 然后在系统“域名管理”里添加 `example.com`
+4. 创建邮箱 `alice@example.com`
+5. 测试主地址 `alice@example.com`
+6. 再测试泛子域地址 `alice@test.example.com`
 
 如果新增根域时看到类似：
 
@@ -220,8 +242,20 @@ lookup mx for example.com: lookup example.com on 127.0.0.11:53: no such host
 通常不是系统功能缺失，而是 Docker 当前 DNS 无法解析该域名。现在服务会自动继续尝试 `dns_resolvers` 中的公共 DNS；如果仍失败，再检查：
 
 1. 根域本身是否已生效
-2. `MX` 是否已正确指向你的收信主机
-3. 宿主机公网 `25` 端口是否已放通并映射到容器 `2525`
+2. `@ MX` 是否已正确指向你的收信主机
+3. 如果要收任意子域邮箱，`* MX` 是否也已经生效
+4. `mail.example.com` 是否有可用的 `A/AAAA` 记录
+5. 宿主机公网 `25` 端口是否已放通并映射到容器 `2525`
+
+### 为什么必须做 `* MX`
+
+外部邮件服务器投递到 `user.foo.example.com` 时，会先按收件域本身查 MX，不会自动继承父域 `example.com` 的 MX。  
+因此，如果你想让 `user@任意子域.example.com` 都能真正送到这台服务器，最稳妥的做法是显式配置：
+
+- `@ MX 10 mail.example.com`
+- `* MX 10 mail.example.com`
+
+`* A` 记录不是 MX 的替代品，但建议同时加上，便于子域解析和部分隐式投递场景。
 
 ## API
 

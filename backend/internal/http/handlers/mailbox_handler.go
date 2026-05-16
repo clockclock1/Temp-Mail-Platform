@@ -132,8 +132,10 @@ func (h *MailboxHandler) Messages(c *gin.Context) {
 
 func (h *MailboxHandler) decorateMailbox(m models.Mailbox) gin.H {
 	address := m.LocalPart
+	wildcardAddress := ""
 	if m.Domain.Name != "" {
 		address += "@" + m.Domain.Name
+		wildcardAddress = m.LocalPart + "@*." + m.Domain.Name
 	}
 	remaining := int64(-1)
 	if m.ExpiresAt != nil {
@@ -152,6 +154,7 @@ func (h *MailboxHandler) decorateMailbox(m models.Mailbox) gin.H {
 		"updatedAt":        m.UpdatedAt,
 		"lastReceived":     m.LastReceived,
 		"address":          address,
+		"wildcardAddress":  wildcardAddress,
 		"remainingSeconds": remaining,
 	}
 }
