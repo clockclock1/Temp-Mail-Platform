@@ -92,14 +92,6 @@ func (s *MailService) CreateMailbox(ownerID uint, localPart string, domainID uin
 	return &mailbox, nil
 }
 
-func (s *MailService) CreateMailboxForDomainName(ownerID uint, localPart, domainName, description string, ttlHours int, allowSubdomainMatch bool) (*models.Mailbox, error) {
-	domain, err := s.ResolveOrCreateSubdomain(domainName, ownerID, allowSubdomainMatch)
-	if err != nil {
-		return nil, err
-	}
-	return s.CreateMailbox(ownerID, localPart, domain.ID, description, ttlHours)
-}
-
 func (s *MailService) domainForNewMailbox(root models.Domain, creatorID uint) (*models.Domain, error) {
 	targetDepth := util.NormalizeDomainLevel(root.Level)
 	if root.RandomLevel {
@@ -150,65 +142,6 @@ func (s *MailService) domainForNewMailbox(root models.Domain, creatorID uint) (*
 	}
 
 	return &domain, nil
-}
-
-func (s *MailService) ResolveOrCreateSubdomain(domainName string, creatorID uint, allowSubdomainMatch bool) (*models.Domain, error) {
-	domainName = strings.ToLower(strings.TrimSpace(domainName))
-	if domainName == "" {
-		return nil, fmt.Errorf("domain not found")
-	}
-
-	var exact models.Domain
-	err := s.db.Where("name = ?", domainName).First(&exact).Error
-	if err == nil {
-		if !exact.Enabled {
-			return nil, fmt.Errorf("domain disabled")
-		}
-		return &exact, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-	if !allowSubdomainMatch {
-		return nil, fmt.Errorf("domain not found")
-	}
-
-	var roots []models.Domain
-	if err := s.db.Where("enabled = ?", true).Order("LENGTH(name) desc").Find(&roots).Error; err != nil {
-		return nil, err
-	}
-	for _, root := range roots {
-		if !util.IsDomainOrSubdomain(domainName, root.Name) || domainName == root.Name {
-			continue
-		}
-		domain := models.Domain{
-			Name:        domainName,
-			Enabled:     true,
-			Level:       root.Level,
-			RandomLevel: root.RandomLevel,
-			LevelMin:    root.LevelMin,
-			LevelMax:    root.LevelMax,
-			MXVerified:  root.MXVerified,
-			MXRecords:   root.MXRecords,
-			MXCheckedAt: root.MXCheckedAt,
-			CreatedBy:   creatorID,
-		}
-		if err := s.db.Create(&domain).Error; err != nil {
-			if strings.Contains(strings.ToLower(err.Error()), "unique") {
-				var existing models.Domain
-				if getErr := s.db.Where("name = ?", domainName).First(&existing).Error; getErr == nil {
-					if !existing.Enabled {
-						return nil, fmt.Errorf("domain disabled")
-					}
-					return &existing, nil
-				}
-			}
-			return nil, err
-		}
-		return &domain, nil
-	}
-
-	return nil, fmt.Errorf("domain not found")
 }
 
 func (s *MailService) FindMailboxByAddress(localPart, domainName string) (*models.Mailbox, error) {

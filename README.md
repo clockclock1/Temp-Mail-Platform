@@ -45,10 +45,6 @@ smtp_addr: ":2525"
 web_dir: "./web"
 jwt_secret: "change-me-in-production"
 jwt_expire_hours: 24
-legacy_admin_auth: "change-this-admin-auth"
-legacy_custom_auth: ""
-legacy_address_jwt_expire_hours: 720
-legacy_allow_subdomain_match: true
 db_path: "./data/tempmail.db"
 data_dir: "./data/messages"
 cors_origins:
@@ -67,12 +63,8 @@ cleanup_interval_minutes: 10
 | `http_addr` | Web/API 监听地址 | `:8080` |
 | `smtp_addr` | SMTP 监听地址 | `:2525` |
 | `web_dir` | 前端静态资源目录 | Docker 用 `./web` 或 `/app/web` |
-| `jwt_secret` | 新版登录 Token 密钥 | 生产环境务必修改 |
-| `jwt_expire_hours` | 新版登录有效期 | 默认 `24` |
-| `legacy_admin_auth` | 旧版管理员鉴权串 | 兼容旧接口时需要 |
-| `legacy_custom_auth` | 旧版自定义鉴权串 | 留空表示关闭 |
-| `legacy_address_jwt_expire_hours` | 旧版邮箱 Token 有效期 | 默认 `720` |
-| `legacy_allow_subdomain_match` | 是否允许子域名自动匹配 | `true`，支持多级域名 |
+| `jwt_secret` | 登录 Token 密钥 | 生产环境务必修改 |
+| `jwt_expire_hours` | 登录有效期 | 默认 `24` |
 | `db_path` | SQLite 数据库文件 | `./data/tempmail.db` |
 | `data_dir` | 邮件原文 `eml` 存放目录 | `./data/messages` |
 | `cors_origins` | 允许的前端来源 | 按实际域名填写 |
@@ -82,7 +74,7 @@ cleanup_interval_minutes: 10
 
 ### 4) 改完会发生什么
 
-- 修改 `cors_origins`、`jwt_secret`、`legacy_*`、`cleanup_interval_minutes`、`data_dir` 后可热生效
+- 修改 `cors_origins`、`jwt_secret`、`cleanup_interval_minutes`、`data_dir` 后可热生效
 - 修改 `http_addr`、`smtp_addr`、`db_path`、`web_dir` 这类路径或监听项，通常需要重启服务
 - 前端配置中心会自动写回同一份 `config.yaml`
 - 配置保存后如果提示 `restartRequired=true`，说明需要重启进程才能完全生效
@@ -214,7 +206,7 @@ docker run -d --name tempmail \
 
 ## API
 
-### 新版 API（`/api/v1`）
+### API（`/api/v1`）
 
 - 认证：`POST /auth/login`、`GET /auth/me`
 - 域名：`GET/POST/PUT/DELETE /domains`
@@ -226,22 +218,6 @@ docker run -d --name tempmail \
   - 权限：`GET /permissions`
 - 统计：`GET /stats`
 - 配置：`GET/PUT /system/config`、`POST /system/config/reload`
-
-### 兼容旧版接口
-
-已兼容你文档中的调用格式：
-
-- `POST /admin/new_address`
-- `POST /api/new_address`
-- `GET /api/mails`
-- `GET /admin/mails`
-- `DELETE /admin/mails/:id`
-- `DELETE /admin/delete_address/:id`
-- `DELETE /admin/clear_inbox/:id`
-- `DELETE /admin/clear_sent_items/:id`
-- `POST /user_api/login`
-- `POST /user_api/register`
-- `GET /user_api/mails`
 
 ## GitHub Actions
 
@@ -264,7 +240,7 @@ docker run -d --name tempmail \
 
 ## 生产建议
 
-- 修改 `jwt_secret`、`legacy_admin_auth`、默认管理员密码
+- 修改 `jwt_secret`、默认管理员密码
 - 为 Web/API 配置 HTTPS
 - SMTP 入站增加限流与反滥用策略
 - 定期备份 `/app/data`

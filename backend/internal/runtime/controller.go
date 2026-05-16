@@ -3,7 +3,6 @@ package runtime
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -20,18 +19,16 @@ type ApplyResult struct {
 type Controller struct {
 	mailService        *service.MailService
 	userJWT            *auth.JWTManager
-	addressJWT         *auth.AddressJWTManager
 	cleanupIntervalNS  atomic.Int64
 	cleanupNowSignal   chan struct{}
 	cleanupStopSignal  chan struct{}
 	cleanupStoppedChan chan struct{}
 }
 
-func NewController(mailService *service.MailService, userJWT *auth.JWTManager, addressJWT *auth.AddressJWTManager) *Controller {
+func NewController(mailService *service.MailService, userJWT *auth.JWTManager) *Controller {
 	c := &Controller{
 		mailService:        mailService,
 		userJWT:            userJWT,
-		addressJWT:         addressJWT,
 		cleanupNowSignal:   make(chan struct{}, 1),
 		cleanupStopSignal:  make(chan struct{}),
 		cleanupStoppedChan: make(chan struct{}),
@@ -79,7 +76,6 @@ func (c *Controller) Apply(oldCfg, newCfg config.Config) (ApplyResult, error) {
 	}
 
 	c.userJWT.Update(newCfg.JWTSecret, newCfg.JWTExpireHours)
-	c.addressJWT.Update(newCfg.JWTSecret, newCfg.LegacyAddrExpire)
 	c.mailService.UpdateDataDir(newCfg.DataDir)
 	c.cleanupIntervalNS.Store(newCfg.CleanupInterval().Nanoseconds())
 
@@ -102,9 +98,6 @@ func (c *Controller) Apply(oldCfg, newCfg config.Config) (ApplyResult, error) {
 	}
 	if oldCfg.DefaultAdminUser != newCfg.DefaultAdminUser || oldCfg.DefaultAdminPass != newCfg.DefaultAdminPass {
 		result.Warnings = append(result.Warnings, "default admin credentials are only used during bootstrap for missing admin account")
-	}
-	if strings.TrimSpace(newCfg.LegacyCustomAuth) == "" {
-		result.Warnings = append(result.Warnings, "legacy_custom_auth is empty; legacy endpoints rely only on x-admin-auth/x-user-token")
 	}
 
 	return result, nil

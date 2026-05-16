@@ -4,10 +4,6 @@ smtp_addr: ":2525"
 web_dir: "./web"
 jwt_secret: "change-me-in-production"
 jwt_expire_hours: 24
-legacy_admin_auth: "change-this-admin-auth"
-legacy_custom_auth: ""
-legacy_address_jwt_expire_hours: 720
-legacy_allow_subdomain_match: true
 db_path: "./data/tempmail.db"
 data_dir: "./data/messages"
 cors_origins:

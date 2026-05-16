@@ -45,15 +45,14 @@ func main() {
 	}
 
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret, cfg.JWTExpireHours)
-	addressJWT := auth.NewAddressJWTManager(cfg.JWTSecret, cfg.LegacyAddrExpire)
 	mailService := service.NewMailService(database, cfg.DataDir)
-	runtimeController := runtime.NewController(mailService, jwtManager, addressJWT)
+	runtimeController := runtime.NewController(mailService, jwtManager)
 	runtimeController.StartCleanupLoop()
 	if _, err := runtimeController.Apply(cfg, cfg); err != nil {
 		log.Fatalf("failed to apply runtime config: %v", err)
 	}
 
-	r := httprouter.New(cfgManager, database, jwtManager, addressJWT, mailService, runtimeController)
+	r := httprouter.New(cfgManager, database, jwtManager, mailService, runtimeController)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

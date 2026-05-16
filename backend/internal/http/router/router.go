@@ -23,7 +23,6 @@ func New(
 	cfgManager *config.Manager,
 	db *gorm.DB,
 	jwtManager *auth.JWTManager,
-	addressJWT *auth.AddressJWTManager,
 	mailService *service.MailService,
 	runtimeController *runtime.Controller,
 ) *gin.Engine {
@@ -37,32 +36,9 @@ func New(
 	mailboxHandler := handlers.NewMailboxHandler(db, mailService)
 	messageHandler := handlers.NewMessageHandler(db)
 	statsHandler := handlers.NewStatsHandler(db)
-	legacyHandler := handlers.NewLegacyHandler(cfgManager, db, mailService, jwtManager, addressJWT)
 	configHandler := handlers.NewConfigHandler(cfgManager, runtimeController)
 
 	r.GET("/healthz", handlers.Health)
-
-	legacyAPI := r.Group("/api")
-	{
-		legacyAPI.POST("/new_address", legacyHandler.APINewAddress)
-		legacyAPI.GET("/mails", legacyHandler.APIMails)
-		legacyAPI.DELETE("/delete_address", legacyHandler.APIDeleteAddress)
-	}
-	legacyAdmin := r.Group("/admin")
-	{
-		legacyAdmin.POST("/new_address", legacyHandler.AdminNewAddress)
-		legacyAdmin.GET("/mails", legacyHandler.AdminMails)
-		legacyAdmin.DELETE("/mails/:id", legacyHandler.AdminDeleteMail)
-		legacyAdmin.DELETE("/delete_address/:id", legacyHandler.AdminDeleteAddress)
-		legacyAdmin.DELETE("/clear_inbox/:id", legacyHandler.AdminClearInbox)
-		legacyAdmin.DELETE("/clear_sent_items/:id", legacyHandler.AdminClearSentItems)
-	}
-	legacyUser := r.Group("/user_api")
-	{
-		legacyUser.POST("/login", legacyHandler.UserLogin)
-		legacyUser.POST("/register", legacyHandler.UserRegister)
-		legacyUser.GET("/mails", legacyHandler.UserMails)
-	}
 
 	api := r.Group("/api/v1")
 	{
@@ -247,8 +223,6 @@ func isReservedPath(path string) bool {
 		return true
 	}
 	return path == "/api" || strings.HasPrefix(path, "/api/") ||
-		path == "/admin" || strings.HasPrefix(path, "/admin/") ||
-		path == "/user_api" || strings.HasPrefix(path, "/user_api/") ||
 		path == "/assets" || strings.HasPrefix(path, "/assets/") ||
 		path == "/favicon.ico"
 }

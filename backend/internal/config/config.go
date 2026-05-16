@@ -13,42 +13,34 @@ import (
 )
 
 type Config struct {
-	AppName                   string   `yaml:"app_name" json:"appName"`
-	HTTPAddr                  string   `yaml:"http_addr" json:"httpAddr"`
-	SMTPAddr                  string   `yaml:"smtp_addr" json:"smtpAddr"`
-	WebDir                    string   `yaml:"web_dir" json:"webDir"`
-	JWTSecret                 string   `yaml:"jwt_secret" json:"jwtSecret"`
-	JWTExpireHours            int      `yaml:"jwt_expire_hours" json:"jwtExpireHours"`
-	LegacyAdminAuth           string   `yaml:"legacy_admin_auth" json:"legacyAdminAuth"`
-	LegacyCustomAuth          string   `yaml:"legacy_custom_auth" json:"legacyCustomAuth"`
-	LegacyAddrExpire          int      `yaml:"legacy_address_jwt_expire_hours" json:"legacyAddrExpire"`
-	LegacyAllowSubdomainMatch bool     `yaml:"legacy_allow_subdomain_match" json:"legacyAllowSubdomainMatch"`
-	DBPath                    string   `yaml:"db_path" json:"dbPath"`
-	DataDir                   string   `yaml:"data_dir" json:"dataDir"`
-	CorsOrigins               []string `yaml:"cors_origins" json:"corsOrigins"`
-	DefaultAdminUser          string   `yaml:"default_admin_user" json:"defaultAdminUser"`
-	DefaultAdminPass          string   `yaml:"default_admin_pass" json:"defaultAdminPass"`
-	CleanupIntervalMinutes    int      `yaml:"cleanup_interval_minutes" json:"cleanupIntervalMinutes"`
+	AppName                string   `yaml:"app_name" json:"appName"`
+	HTTPAddr               string   `yaml:"http_addr" json:"httpAddr"`
+	SMTPAddr               string   `yaml:"smtp_addr" json:"smtpAddr"`
+	WebDir                 string   `yaml:"web_dir" json:"webDir"`
+	JWTSecret              string   `yaml:"jwt_secret" json:"jwtSecret"`
+	JWTExpireHours         int      `yaml:"jwt_expire_hours" json:"jwtExpireHours"`
+	DBPath                 string   `yaml:"db_path" json:"dbPath"`
+	DataDir                string   `yaml:"data_dir" json:"dataDir"`
+	CorsOrigins            []string `yaml:"cors_origins" json:"corsOrigins"`
+	DefaultAdminUser       string   `yaml:"default_admin_user" json:"defaultAdminUser"`
+	DefaultAdminPass       string   `yaml:"default_admin_pass" json:"defaultAdminPass"`
+	CleanupIntervalMinutes int      `yaml:"cleanup_interval_minutes" json:"cleanupIntervalMinutes"`
 }
 
 func Default() Config {
 	return Config{
-		AppName:                   "Temp Mail Service",
-		HTTPAddr:                  ":8080",
-		SMTPAddr:                  ":2525",
-		WebDir:                    "./web",
-		JWTSecret:                 "change-me-in-production",
-		JWTExpireHours:            24,
-		LegacyAdminAuth:           "admin123456",
-		LegacyCustomAuth:          "",
-		LegacyAddrExpire:          24 * 30,
-		LegacyAllowSubdomainMatch: true,
-		DBPath:                    "./data/tempmail.db",
-		DataDir:                   "./data/messages",
-		CorsOrigins:               []string{"http://localhost:5173", "http://localhost:8080"},
-		DefaultAdminUser:          "admin",
-		DefaultAdminPass:          "admin123456",
-		CleanupIntervalMinutes:    10,
+		AppName:                "Temp Mail Service",
+		HTTPAddr:               ":8080",
+		SMTPAddr:               ":2525",
+		WebDir:                 "./web",
+		JWTSecret:              "change-me-in-production",
+		JWTExpireHours:         24,
+		DBPath:                 "./data/tempmail.db",
+		DataDir:                "./data/messages",
+		CorsOrigins:            []string{"http://localhost:5173", "http://localhost:8080"},
+		DefaultAdminUser:       "admin",
+		DefaultAdminPass:       "admin123456",
+		CleanupIntervalMinutes: 10,
 	}
 }
 
@@ -107,8 +99,6 @@ func Normalize(cfg *Config) {
 	cfg.SMTPAddr = strings.TrimSpace(cfg.SMTPAddr)
 	cfg.WebDir = strings.TrimSpace(cfg.WebDir)
 	cfg.JWTSecret = strings.TrimSpace(cfg.JWTSecret)
-	cfg.LegacyAdminAuth = strings.TrimSpace(cfg.LegacyAdminAuth)
-	cfg.LegacyCustomAuth = strings.TrimSpace(cfg.LegacyCustomAuth)
 	cfg.DBPath = strings.TrimSpace(cfg.DBPath)
 	cfg.DataDir = strings.TrimSpace(cfg.DataDir)
 	cfg.DefaultAdminUser = strings.TrimSpace(cfg.DefaultAdminUser)
@@ -132,9 +122,6 @@ func Normalize(cfg *Config) {
 	if cfg.JWTExpireHours <= 0 {
 		cfg.JWTExpireHours = 24
 	}
-	if cfg.LegacyAddrExpire <= 0 {
-		cfg.LegacyAddrExpire = 24 * 30
-	}
 }
 
 func Validate(cfg Config) error {
@@ -146,9 +133,6 @@ func Validate(cfg Config) error {
 	}
 	if strings.TrimSpace(cfg.JWTSecret) == "" {
 		return errors.New("jwt_secret cannot be empty")
-	}
-	if strings.TrimSpace(cfg.LegacyAdminAuth) == "" {
-		return errors.New("legacy_admin_auth cannot be empty")
 	}
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		return errors.New("db_path cannot be empty")
@@ -164,9 +148,6 @@ func Validate(cfg Config) error {
 	}
 	if cfg.JWTExpireHours <= 0 {
 		return errors.New("jwt_expire_hours must be > 0")
-	}
-	if cfg.LegacyAddrExpire <= 0 {
-		return errors.New("legacy_address_jwt_expire_hours must be > 0")
 	}
 	if cfg.CleanupIntervalMinutes <= 0 {
 		return errors.New("cleanup_interval_minutes must be > 0")

@@ -42,19 +42,6 @@
           <input type="number" min="1" v-model.number="form.jwtExpireHours" />
         </label>
         <label>
-          legacy_admin_auth
-          <input v-model="form.legacyAdminAuth" />
-        </label>
-
-        <label>
-          legacy_custom_auth
-          <input v-model="form.legacyCustomAuth" />
-        </label>
-        <label>
-          legacy_address_jwt_expire_hours
-          <input type="number" min="1" v-model.number="form.legacyAddrExpire" />
-        </label>
-        <label>
           cleanup_interval_minutes
           <input type="number" min="1" v-model.number="form.cleanupIntervalMinutes" />
         </label>
@@ -104,9 +91,6 @@ const form = reactive({
   webDir: '',
   jwtSecret: '',
   jwtExpireHours: 24,
-  legacyAdminAuth: '',
-  legacyCustomAuth: '',
-  legacyAddrExpire: 720,
   dbPath: '',
   dataDir: '',
   corsOrigins: [],
